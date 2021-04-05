@@ -21,12 +21,6 @@ let platforms =
 (* Link for GitHub statuses. *)
 let url ~owner ~name ~hash = Uri.of_string (Printf.sprintf "https://ci.ocamllabs.io/github/%s/%s/commit/%s" owner name hash)
 
-let opam_repository_commit =
-  let repo = { Github.Repo_id.owner = "ocaml"; name = "opam-repository" } in
-  Github.Api.Anonymous.head_of repo @@ `Ref "refs/heads/master"
-
-let opam_repository_commits = [opam_repository_commit] |> Current.list_seq
-
 let github_status_of_state ~head result =
   let+ head = head
   and+ result = result in
@@ -156,6 +150,8 @@ let summarise results =
     | 0, [], skip -> list_errors ~ok:0 skip (* Everything was skipped - treat skips as errors *)
     | _, [], _ -> Ok ()                     (* No errors and at least one success *)
     | ok, err, _ -> list_errors ~ok err     (* Some errors found - report *)
+
+let opam_repository_commits = Conf.opam_repository_commits
 
 let local_test ~solver repo () =
   let src = Git.Local.head_commit repo in

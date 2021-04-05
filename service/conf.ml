@@ -2,7 +2,13 @@ let profile =
   match Sys.getenv_opt "CI_PROFILE" with
   | Some "production" -> `Production
   | Some "dev" | None -> `Dev
-  | Some x -> Fmt.failwith "Unknown $PROFILE setting %S" x
+  | Some x -> Fmt.failwith "Unknown $CI_PROFILE setting %S" x
+
+let target =
+  match Sys.getenv_opt "CI_TARGET" with
+  | Some "multicore" -> `Multicore
+  | Some "mainline" | None -> `Mainline
+  | Some x -> Fmt.failwith "Unknown $CI_TARGET setting %S" x
 
 (* GitHub defines a stale branch as more than 3 months old.
    Don't bother testing these. *)
@@ -39,6 +45,7 @@ end
 
 module OV = Ocaml_version
 module DD = Dockerfile_distro
+module Github = Current_github
 
 let default_compiler = OV.(Releases.latest |> without_patch)
 let trunk_compiler = OV.(Sources.trunk |> without_patch)
@@ -75,16 +82,36 @@ let platforms =
   in
   let make_release ?arch ov =
     let distro = DD.tag_of_distro master_distro in
-    let ov = OV.with_just_major_and_minor ov in
+    let ov = OV.without_patch ov in
     v ?arch (OV.to_string ov) distro ov in
-  match profile with
-  | `Production ->
-      let distros =
-        DD.active_tier1_distros `X86_64 @ DD.active_tier2_distros `X86_64 |>
-        List.map make_distro |> List.flatten in
-      (* The first one in this list is used for lint actions *)
-      let ovs = List.rev OV.Releases.recent @ OV.Releases.unreleased_betas in
-      List.map make_release ovs @ distros
-  | `Dev ->
-      let ovs = List.map OV.of_string_exn ["4.11"; "4.10"; "4.03"] in
-      List.map make_release ovs @ [make_release ~arch:`I386 (List.hd ovs)]
+  match target with
+  | `Mainline -> begin
+    match profile with
+    | `Production ->
+        let distros =
+          DD.active_tier1_distros `X86_64 @ DD.active_tier2_distros `X86_64 |>
+          List.map make_distro |> List.flatten in
+        (* The first one in this list is used for lint actions *)
+        let ovs = List.rev OV.Releases.recent @ OV.Releases.unreleased_betas in
+        List.map make_release ovs @ distros
+    | `Dev ->
+        let ovs = List.map OV.of_string_exn ["4.11"; "4.10"; "4.03"] in
+        List.map make_release ovs @ [make_release ~arch:`I386 (List.hd ovs)]
+    end
+  | `Multicore ->
+    let ovs = List.map OV.of_string_exn ["4.10+multicore"; "4.12+domains"] in
+    List.map make_release ovs
+
+let opam_repository_repos = [
+  `Mainline, { Github.Repo_id.owner="ocaml"; name="opam-repository" };
+  `Multicore, { Github.Repo_id.owner="ocaml-multicore"; name="multicore-opam" }
+]
+
+let opam_repository_commits =
+  let chosen_repos = match target with
+  | `Mainline -> [`Mainline]
+  | `Multicore -> [`Mainline; `Multicore]
+  in
+  chosen_repos |>
+    List.map (fun r -> Github.Api.Anonymous.head_of (List.assoc r opam_repository_repos) (`Ref "refs/heads/master")) |>
+    Current.list_seq
