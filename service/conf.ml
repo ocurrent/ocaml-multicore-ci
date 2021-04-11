@@ -115,3 +115,8 @@ let opam_repository_commits =
   chosen_repos |>
     List.map (fun r -> Github.Api.Anonymous.head_of (List.assoc r opam_repository_repos) (`Ref "refs/heads/master")) |>
     Current.list_seq
+
+let build_mechanism_for_package package =
+  match package with
+  | "batteries" -> `Make ["all"; "test"]
+  | _ -> `Build

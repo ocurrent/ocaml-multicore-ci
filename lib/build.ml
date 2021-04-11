@@ -31,9 +31,11 @@ let rec with_commit_lock ~job commit variant fn =
 let make_build_spec ~base ~repo ~variant ~ty =
     let base = Raw.Image.hash base in
     match ty with
-    | `Opam (`Build, selection, opam_files) -> Opam_build.spec ~base ~opam_files ~selection
+    | `Opam (`Build, selection, opam_files) -> Opam_build.spec_dune ~base ~opam_files ~selection
     | `Opam (`Lint `Doc, selection, opam_files) -> Lint.doc_spec ~base ~opam_files ~selection
     | `Opam (`Lint `Opam, selection, opam_files) -> Lint.opam_lint_spec ~base ~opam_files ~selection
+    | `Opam (`Make targets, selection, opam_files) -> Opam_build.spec_make ~base ~opam_files ~selection ~targets
+    | `Opam (`Script cmds, selection, opam_files) -> Opam_build.spec_script ~base ~opam_files ~selection ~cmds
     | `Opam_fmt ocamlformat_source -> Lint.fmt_spec ~base ~ocamlformat_source
     | `Opam_monorepo config -> Opam_monorepo.spec ~base ~repo ~config ~variant
 
@@ -158,8 +160,11 @@ let v ~platforms ~repo ~spec source =
     state |> Result.map @@ fun () ->
     match spec.ty with
     | `Opam_monorepo _
-    | `Opam (`Build, _, _) -> `Built
-    | `Opam (`Lint (`Doc|`Opam), _, _) -> `Checked
+    | `Opam (`Build, _, _)
+    | `Opam (`Make _, _, _)
+    | `Opam (`Script _, _, _) -> `Built
+
+    | `Opam (`Lint (`Doc|`Opam), _, _)
     | `Opam_fmt _ -> `Checked
   in
   result, job_id

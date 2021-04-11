@@ -68,6 +68,19 @@ let get_job_id x =
   | Some { Current.Metadata.job_id; _ } -> job_id
   | None -> None
 
+let remove_version_re = Str.regexp "\\..*$"
+
+let build_mechanism_for_selection ~selection =
+    let mechanisms = selection.Selection.packages |> List.map (fun package ->
+        let package_raw = Str.global_replace remove_version_re "" package in
+        (package, Conf.build_mechanism_for_package package_raw)
+    ) in
+    let (builds, others) = mechanisms |> List.partition (fun (_, mechanism) -> mechanism = `Build) in
+    match (builds, others) with
+    | (_, []) -> `Build
+    | (_, [(_, (`Make _ as mech))]) -> mech
+    | _ -> `Build
+
 let build_with_docker ?ocluster ~repo ~analysis source =
   Current.with_context analysis @@ fun () ->
   let specs =
@@ -89,7 +102,8 @@ let build_with_docker ?ocluster ~repo ~analysis source =
         let builds =
           selections |> List.map (fun selection ->
               let label = Variant.to_string selection.Selection.variant in
-              Spec.opam ~label ~selection ~analysis `Build
+              let build_mechanism = build_mechanism_for_selection ~selection in
+              Spec.opam ~label ~selection ~analysis build_mechanism
             )
         and lint =
           [

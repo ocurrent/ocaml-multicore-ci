@@ -59,6 +59,22 @@ let rec get_root_opam_packages = function
 
 let download_cache = "opam-archives"
 
+let install_deps ~cache ~network ~non_root_pkgs ~root_pkgs =
+  let open Obuilder_spec in
+  let non_root_pkgs_str = String.concat " " non_root_pkgs in
+  let root_pkgs_str = String.concat " " root_pkgs in
+  match non_root_pkgs with
+  | [] ->
+    [
+      run ~network ~cache "opam depext --update -y %s" root_pkgs_str
+    ]
+  | _ ->
+    [
+      env "DEPS" non_root_pkgs_str;
+      run ~network ~cache "opam depext --update -y %s $DEPS" root_pkgs_str;
+      run ~network ~cache "opam install $DEPS"
+    ]
+
 let install_project_deps ~opam_files ~selection =
   let { Selection.packages; commit; variant } = selection in
   let groups = group_opam_files opam_files in
@@ -84,19 +100,27 @@ let install_project_deps ~opam_files ~selection =
        (git cat-file -e %s || git fetch origin master) && \
        git reset -q --hard %s && git log --no-decorate -n1 --oneline \
        && opam update -u" commit commit;
-  ] @ pin_opam_files ~network groups @ [
-    env "DEPS" (String.concat " " non_root_pkgs);
-    run ~network ~cache "opam depext --update -y %s $DEPS" (String.concat " " root_pkgs);
-    run ~network ~cache "opam install $DEPS"
-  ]
+  ] @ pin_opam_files ~network groups
+  @ install_deps ~cache ~network ~non_root_pkgs ~root_pkgs
 
-let spec ~base ~opam_files ~selection =
+let spec_helper ~body ~base ~opam_files ~selection =
   let open Obuilder_spec in
   stage ~from:base (
     comment "%s" (Fmt.strf "%a" Variant.pp selection.Selection.variant) ::
     user ~uid:1000 ~gid:1000 ::
     install_project_deps ~opam_files ~selection @ [
-      copy ["."] ~dst:"/src/";
-      run "opam exec -- dune build @install @runtest && rm -rf _build"
-    ]
+      copy ["."] ~dst:"/src/"
+    ] @ body
   )
+
+let spec_script ~base ~opam_files ~selection ~cmds =
+  let body = cmds |> List.map (fun cmd -> Obuilder_spec.run "opam exec -- %s" cmd) in
+  spec_helper ~body ~base ~opam_files ~selection
+
+let spec_dune ~base ~opam_files ~selection =
+  let cmds = ["dune build @install @runtest && rm -rf _build"] in
+  spec_script ~base ~opam_files ~selection ~cmds
+
+let spec_make ~base ~opam_files ~selection ~targets =
+  let cmds = [Format.sprintf "make %s" (String.concat " " targets)] in
+  spec_script ~base ~opam_files ~selection ~cmds
