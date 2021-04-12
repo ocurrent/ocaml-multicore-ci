@@ -19,6 +19,7 @@ module Analysis : sig
 end
 
 val examine :
+  ?label:string ->
   solver:Ocaml_ci_api.Solver.t ->
   platforms:Platform.t list Current.t ->
   opam_repository_commits:Current_git.Commit_id.t list Current.t ->

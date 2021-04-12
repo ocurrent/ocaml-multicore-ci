@@ -267,8 +267,14 @@ end
 
 module Examine_cache = Current_cache.Generic(Examine)
 
-let examine ~solver ~platforms ~opam_repository_commits src =
-  Current.component "Analyse" |>
+let add_parens str =
+  match str with
+  | None -> ""
+  | Some s -> Format.sprintf " (%s)" s
+
+let examine ?label ~solver ~platforms ~opam_repository_commits src =
+  let label_parens = add_parens label in
+  Current.component "Analyse%s" label_parens |>
   let> src = src
   and> opam_repository_commits = opam_repository_commits
   and> platforms = platforms in

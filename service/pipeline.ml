@@ -81,7 +81,7 @@ let build_mechanism_for_selection ~selection =
     | (_, [(_, (`Make _ as mech))]) -> mech
     | _ -> `Build
 
-let build_with_docker ?ocluster ~repo ~analysis source =
+let build_with_docker ?ocluster ~repo ?label ~analysis source =
   Current.with_context analysis @@ fun () ->
   let specs =
     let+ analysis = Current.state ~hidden:true analysis in
@@ -114,7 +114,7 @@ let build_with_docker ?ocluster ~repo ~analysis source =
         in
         lint @ builds
   in
-  let builds = specs |> Current.list_map (module Spec) (fun spec ->
+  let builds = specs |> Current.list_map ?label (module Spec) (fun spec ->
       let+ result =
         match ocluster with
         | None -> Build.v ~platforms ~repo ~spec source
@@ -167,18 +167,24 @@ let summarise results =
 
 let opam_repository_commits = Conf.opam_repository_commits
 
-let local_test ~solver repo () =
+let local_test ?label ~solver repo () =
   let src = Git.Local.head_commit repo in
   let repo = Current.return { Github.Repo_id.owner = "local"; name = "test" }
-  and analysis = Analyse.examine ~solver ~platforms ~opam_repository_commits src in
+  and analysis = Analyse.examine ?label ~solver ~platforms ~opam_repository_commits src in
   Current.component "summarise" |>
-  let> results = build_with_docker ~repo ~analysis src in
+  let> results = build_with_docker ~repo ?label ~analysis src in
   let result =
     results
     |> List.map (fun (variant, (build, _job)) -> variant, build)
     |> summarise
   in
   Current_incr.const (result, None)
+
+let local_test_multiple ~solver repos () =
+  repos |> List.map (fun repo ->
+    let label = Git.Local.repo repo |> Fpath.basename in
+    local_test ~label ~solver repo ()
+  ) |> Current.all
 
 let v ?ocluster ~app ~solver () =
   let ocluster = Option.map (Cluster_build.config ~timeout:(Duration.of_hour 1)) ocluster in
