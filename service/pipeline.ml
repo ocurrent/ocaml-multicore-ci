@@ -75,11 +75,58 @@ let build_mechanism_for_selection ~selection =
         let package_raw = Str.global_replace remove_version_re "" package in
         (package, Conf.build_mechanism_for_package package_raw)
     ) in
-    let (builds, others) = mechanisms |> List.partition (fun (_, mechanism) -> mechanism = `Build) in
-    match (builds, others) with
-    | (_, []) -> `Build
-    | (_, [(_, (`Make _ as mech))]) -> mech
+    let (_, others) = mechanisms |> List.partition (fun (_, mechanism) -> mechanism = `Build) in
+    match others with
+    | [] -> `Build
+    | [(_, (`Make _ as mech))] -> mech
+    | [(_, (`Script _ as mech))] -> mech
     | _ -> `Build
+
+let selection_to_opam_spec ~analysis selection =
+  let label = Variant.to_string selection.Selection.variant in
+  let build_mechanism = build_mechanism_for_selection ~selection in
+  Spec.opam ~label ~selection ~analysis build_mechanism
+
+let package_and_selection_to_opam_spec ~analysis ~package selection =
+  Format.printf "package_and_selection_to_opam_spec %s" package;
+  let variant_label = Variant.to_string selection.Selection.variant in
+  let label = Format.sprintf "%s-%s" package variant_label in
+  Spec.opam ~label ~selection ~analysis (Conf.build_mechanism_for_package package)
+
+let make_opam_specs analysis =
+  match Analyse.Analysis.selections analysis with
+  | `Not_opam (package, selections) ->
+                  Format.eprintf "Not_opam %s" package;
+    selections |> List.map (package_and_selection_to_opam_spec ~analysis ~package)
+  | `Opam_monorepo config ->
+    let lint_selection = Opam_monorepo.selection_of_config config in
+    [
+      Spec.opam ~label:"(lint-fmt)" ~selection:lint_selection ~analysis (`Lint `Fmt);
+      Spec.opam_monorepo ~config
+    ]
+  | `Opam_build selections ->
+(*    let lint_selection = List.hd selections in*)
+    let builds =
+      selections |> List.map (selection_to_opam_spec ~analysis)
+    and lint =
+      [
+(*        Spec.opam ~label:"(lint-fmt)" ~selection:lint_selection ~analysis (`Lint `Fmt);*)
+(*        Spec.opam ~label:"(lint-doc)" ~selection:lint_selection ~analysis (`Lint `Doc);*)
+(*        Spec.opam ~label:"(lint-opam)" ~selection:lint_selection ~analysis (`Lint `Opam);*)
+      ]
+    in
+    lint @ builds
+
+let place_build ~ocluster ~repo ~source spec =
+  let+ result =
+    match ocluster with
+    | None ->
+      Build.v ~platforms ~repo ~spec source
+    | Some ocluster ->
+      let src = Current.map Git.Commit.id source in
+      Cluster_build.v ocluster ~platforms ~repo ~spec src
+  and+ spec = spec in
+  Spec.label spec, result
 
 let build_with_docker ?ocluster ~repo ?label ~analysis source =
   Current.with_context analysis @@ fun () ->
@@ -90,41 +137,9 @@ let build_with_docker ?ocluster ~repo ?label ~analysis source =
         (* If we don't have the analysis yet, just use the empty list. *)
         []
     | Ok analysis ->
-      match Analyse.Analysis.selections analysis with
-      | `Opam_monorepo config ->
-        let lint_selection = Opam_monorepo.selection_of_config config in
-        [
-          Spec.opam ~label:"(lint-fmt)" ~selection:lint_selection ~analysis (`Lint `Fmt);
-          Spec.opam_monorepo ~config
-        ]
-      | `Opam_build selections ->
-        let lint_selection = List.hd selections in
-        let builds =
-          selections |> List.map (fun selection ->
-              let label = Variant.to_string selection.Selection.variant in
-              let build_mechanism = build_mechanism_for_selection ~selection in
-              Spec.opam ~label ~selection ~analysis build_mechanism
-            )
-        and lint =
-          [
-            Spec.opam ~label:"(lint-fmt)" ~selection:lint_selection ~analysis (`Lint `Fmt);
-            Spec.opam ~label:"(lint-doc)" ~selection:lint_selection ~analysis (`Lint `Doc);
-            Spec.opam ~label:"(lint-opam)" ~selection:lint_selection ~analysis (`Lint `Opam);
-          ]
-        in
-        lint @ builds
+      make_opam_specs analysis
   in
-  let builds = specs |> Current.list_map ?label (module Spec) (fun spec ->
-      let+ result =
-        match ocluster with
-        | None -> Build.v ~platforms ~repo ~spec source
-        | Some ocluster ->
-          let src = Current.map Git.Commit.id source in
-          Cluster_build.v ocluster ~platforms ~repo ~spec src
-      and+ spec = spec in
-      Spec.label spec, result
-    ) in
-  let+ builds = builds
+  let+ builds = specs |> Current.list_map ?label (module Spec) (place_build ~ocluster ~repo ~source)
   and+ analysis_result = Current.state ~hidden:true (Current.map (fun _ -> `Checked) analysis)
   and+ analysis_id = get_job_id analysis in
   builds @ [

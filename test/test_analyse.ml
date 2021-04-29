@@ -16,6 +16,7 @@ module Analysis = struct
 
   let selection_type (t:t) =
     match selections t with
+    | `Not_opam _ -> "not-opam"
     | `Opam_monorepo _ -> "opam-monorepo"
     | `Opam_build _ -> "opam"
 
@@ -28,13 +29,13 @@ module Analysis = struct
   [@@deriving eq, yojson]
 
 
-  let of_dir ~switch ~job ~platforms ~solver_dir ~opam_repository_commits d =
+  let of_dir ~switch ~job ~package_name ~platforms ~solver_dir ~opam_repository_commits d =
     let solver = Ocaml_ci.Solver_pool.spawn_local ~solver_dir () in
     Lwt_switch.add_hook (Some switch) (fun () ->
         Capnp_rpc_lwt.Capability.dec_ref solver;
         Lwt.return_unit
       );
-    of_dir ~solver ~job ~platforms ~opam_repository_commits d
+    of_dir ~solver ~job ~package_name ~platforms ~opam_repository_commits d
     |> Lwt_result.map (fun t ->
            {
              opam_files = opam_files t;
@@ -116,7 +117,7 @@ let expect_test name ~project ~expected =
           ~gref:"master"
       in
       Lwt_switch.with_switch (fun switch ->
-          Analysis.of_dir ~switch ~job ~platforms:Test_platforms.v ~solver_dir ~opam_repository_commits:[opam_repository_commit]
+          Analysis.of_dir ~switch ~job ~package_name:"test" ~platforms:Test_platforms.v ~solver_dir ~opam_repository_commits:[opam_repository_commit]
             (Fpath.v root)
         )
       >|= (function

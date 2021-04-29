@@ -7,6 +7,7 @@ module Analysis : sig
   val selections : t -> [
       | `Opam_build of Selection.t list
       | `Opam_monorepo of Opam_monorepo.config
+      | `Not_opam of string * Selection.t list
     ]
 
   val of_dir :
@@ -14,6 +15,7 @@ module Analysis : sig
     job:Current.Job.t ->
     platforms:(Variant.t * Ocaml_ci_api.Worker.Vars.t) list ->
     opam_repository_commits:Current_git.Commit_id.t list ->
+    package_name:string ->
     Fpath.t ->
     (t, [ `Msg of string ]) result Lwt.t
 end

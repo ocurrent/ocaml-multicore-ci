@@ -41,6 +41,11 @@ let job_log job =
       Capnp_rpc_lwt.Service.(return (Response.create_empty ()))
   end
 
+let make_placeholder_selections ~platforms ~opam_repository_commits =
+  platforms |> List.map (fun platform ->
+    { Selection.variant = fst platform; packages = []; commit = Current_git.Commit_id.hash (List.hd opam_repository_commits) }
+  )
+
 module Analysis = struct
   type t = {
     opam_files : string list;
@@ -48,6 +53,7 @@ module Analysis = struct
     selections :
       [ `Opam_build of Selection.t list
       | `Opam_monorepo of Opam_monorepo.config
+      | `Not_opam of string * Selection.t list
       ];
   }
   [@@deriving yojson]
@@ -165,7 +171,7 @@ module Analysis = struct
     | Ok x -> Ok (List.map Selection.of_worker x)
     | Error (`Msg msg) -> Fmt.error_msg "Error from solver: %s" msg
 
-  let of_dir ~solver ~job ~platforms ~opam_repository_commits dir =
+  let of_dir ~solver ~job ~platforms ~opam_repository_commits ~package_name dir =
     let solve = solve ~opam_repository_commits ~job ~solver in
     let ty = type_of_dir dir in
     let cmd = "", [| "find"; "."; "-maxdepth"; "3"; "-name"; "*.opam" |] in
@@ -199,7 +205,7 @@ module Analysis = struct
         )
     in
     Analyse_ocamlformat.get_ocamlformat_source job ~opam_files ~root:dir >>!= fun ocamlformat_source ->
-    if opam_files = [] then Lwt_result.fail (`Msg "No opam files found!")
+    if opam_files = [] then Lwt_result.return { opam_files = []; ocamlformat_source = None; selections = `Not_opam (package_name, make_placeholder_selections ~platforms ~opam_repository_commits)}
     else if List.filter is_toplevel opam_files = [] then Lwt_result.fail (`Msg "No top-level opam files found!")
     else (
       begin
@@ -254,10 +260,20 @@ module Examine = struct
 
   let id = "ci-analyse"
 
+  let git_ext_re = Str.regexp "\\.git$"
+
+  let package_name_from_commit commit =
+    Current_git.(Commit_id.repo @@ Commit.id commit) |>
+      (String.split_on_char '/') |>
+      List.rev |>
+      List.hd |>
+      Str.global_replace git_ext_re ""
+
   let run solver job src { Value.opam_repository_commits; platforms } =
+    let package_name = package_name_from_commit src in
     Current.Job.start job ~pool ~level:Current.Level.Harmless >>= fun () ->
     Current_git.with_checkout ~job src @@ fun src ->
-    Analysis.of_dir ~solver ~platforms ~opam_repository_commits ~job src
+    Analysis.of_dir ~solver ~platforms ~opam_repository_commits ~job ~package_name src
 
   let pp f _ = Fmt.string f "Analyse"
 
