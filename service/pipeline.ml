@@ -19,7 +19,7 @@ let platforms =
   Current.list_seq (List.map v Conf.platforms)
 
 (* Link for GitHub statuses. *)
-let url ~owner ~name ~hash = Uri.of_string (Printf.sprintf "https://ci.ocamllabs.io/github/%s/%s/commit/%s" owner name hash)
+let url ~owner ~name ~hash = Uri.of_string (Printf.sprintf "https://multicore.ci.ocamllabs.io/github/%s/%s/commit/%s" owner name hash)
 
 let github_status_of_state ~head result =
   let+ head = head
@@ -239,6 +239,6 @@ let v ?ocluster ~app ~solver () =
   and set_github_status =
     summary
     |> github_status_of_state ~head
-    |> Github.Api.Commit.set_status head "ocaml-ci"
+    |> Github.Api.Commit.set_status head "ocaml-multicore-ci"
   in
   Current.all [index; set_github_status]

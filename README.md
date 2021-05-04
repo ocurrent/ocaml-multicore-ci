@@ -1,6 +1,6 @@
-# OCaml-CI
+# OCaml-Multicore-CI
 
-[![OCaml-CI Build Status](https://img.shields.io/endpoint?url=https%3A%2F%2Fci.ocamllabs.io%2Fbadge%2Focurrent%2Focaml-ci%2Fmaster&logo=ocaml)](https://ci.ocamllabs.io/github/ocurrent/ocaml-ci)
+[![OCaml-Multicore-CI Build Status](https://img.shields.io/endpoint?url=https%3A%2F%2Fci.ocamllabs.io%2Fbadge%2Focurrent%2Focaml-multicore-ci%2Fmaster&logo=ocaml)](https://ci.ocamllabs.io/github/ocurrent/ocaml-multicore-ci)
 
 This is an [OCurrent][] pipeline that provides CI for OCaml projects hosted on GitHub.
 
@@ -18,7 +18,7 @@ previously cached build step as long as the opam files don't change.
 
 To add the CI to your own project:
 
-1. Go to https://github.com/apps/ocaml-ci and install the app for your GitHub user.
+1. Go to https://github.com/apps/multicore-ci and install the app for your GitHub user.
 2. Configure just the repositories you want to test (start with one!).
 3. Ask us to add you to the alpha-testers list by submitting a PR against this
    repository adding yourself to `--github-account-allowlist` in `stack.yml`.
@@ -29,7 +29,7 @@ To add the CI to your own project:
 Get the code with:
 
 ```sh
-git clone --recursive https://github.com/ocurrent/ocaml-ci.git
+git clone --recursive https://github.com/ocurrent/ocaml-multicore-ci.git
 ```
 
 Note: you need to clone with `--recursive` because this project uses submodules
@@ -50,11 +50,10 @@ This is useful if you want to try out changes to the pipeline.
 If you want to build the whole system, the easiest way is using Docker:
 
 ```sh
-docker build -t ocaml-ci-service .
-docker build -f Dockerfile.web -t ocaml-ci-web .
+docker build -t ocaml-multicore-ci-service .
+docker build -f Dockerfile.web -t ocaml-multicore-ci-web .
 ```
 
-The `stack.yml` contains the configuration used on the live system.
 You'll have to register your own GitHub app to be able to test the services locally.
 
 If you want it to update to changes in opam-repository automatically you'll also need
@@ -119,5 +118,5 @@ $ ocaml-ci mirage/irmin pull/867 alpine-3.10-ocaml-4.08 cancel
 ```
 
 [OCurrent]: https://github.com/ocurrent/ocurrent
-[pipeline.ml]: https://github.com/ocurrent/ocaml-ci/blob/master/service/pipeline.ml
-[capnp-api]: https://github.com/ocurrent/ocaml-ci/blob/master/api/schema.capnp
+[pipeline.ml]: https://github.com/ocurrent/ocaml-multicore-ci/blob/master/service/pipeline.ml
+[capnp-api]: https://github.com/ocurrent/ocaml-multicore-ci/blob/master/api/schema.capnp
