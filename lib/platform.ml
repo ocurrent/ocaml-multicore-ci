@@ -2,7 +2,7 @@ open Lwt.Infix
 open Current.Syntax
 
 module Raw = Current_docker.Raw
-module Worker = Ocaml_ci_api.Worker
+module Worker = Ocaml_multicore_ci_api.Worker
 
 type t = {
   label : string;

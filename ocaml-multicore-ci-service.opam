@@ -3,8 +3,8 @@ opam-version: "2.0"
 synopsis: "Test OCaml projects on GitHub"
 maintainer: ["talex5@gmail.com"]
 authors: ["talex5@gmail.com"]
-homepage: "https://github.com/ocurrent/ocaml-ci"
-bug-reports: "https://github.com/ocurrent/ocaml-ci/issues"
+homepage: "https://github.com/ocurrent/ocaml-multicore-ci"
+bug-reports: "https://github.com/ocurrent/ocaml-multicore-ci/issues"
 depends: [
   "dune" {>= "2.0"}
   "prometheus-app" {>= "1.0"}
@@ -22,8 +22,8 @@ depends: [
   "current_rpc"
   "current_ocluster"
   "capnp-rpc-unix" {>= "0.7.0"}
-  "ocaml-ci-api"
-  "ocaml-ci-solver"
+  "ocaml-multicore-ci-api"
+  "ocaml-multicore-ci-solver"
   "ocluster-api"
   "obuilder-spec"
   "conf-libev"
@@ -49,4 +49,4 @@ build: [
     "@doc" {with-doc}
   ]
 ]
-dev-repo: "git+https://github.com/ocurrent/ocaml-ci.git"
+dev-repo: "git+https://github.com/ocurrent/ocaml-multicore-ci.git"

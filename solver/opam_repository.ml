@@ -1,6 +1,6 @@
 open Lwt.Infix
 
-module Log = Ocaml_ci_api.Solver.Log
+module Log = Ocaml_multicore_ci_api.Solver.Log
 module Store = Git_unix.Store
 
 let default_repo_url = "https://github.com/ocaml/opam-repository.git"

@@ -11,9 +11,9 @@ module Analysis : sig
     ]
 
   val of_dir :
-    solver:Ocaml_ci_api.Solver.t ->
+    solver:Ocaml_multicore_ci_api.Solver.t ->
     job:Current.Job.t ->
-    platforms:(Variant.t * Ocaml_ci_api.Worker.Vars.t) list ->
+    platforms:(Variant.t * Ocaml_multicore_ci_api.Worker.Vars.t) list ->
     opam_repository_commits:Current_git.Commit_id.t list ->
     package_name:string ->
     Fpath.t ->
@@ -22,7 +22,7 @@ end
 
 val examine :
   ?label:string ->
-  solver:Ocaml_ci_api.Solver.t ->
+  solver:Ocaml_multicore_ci_api.Solver.t ->
   platforms:Platform.t list Current.t ->
   opam_repository_commits:Current_git.Commit_id.t list Current.t ->
   Current_git.Commit.t Current.t ->

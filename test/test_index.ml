@@ -1,4 +1,4 @@
-module Index = Ocaml_ci.Index
+module Index = Ocaml_multicore_ci.Index
 module Ref_map = Index.Ref_map
 
 let jobs =

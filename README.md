@@ -2,7 +2,13 @@
 
 [![OCaml-Multicore-CI Build Status](https://img.shields.io/endpoint?url=https%3A%2F%2Fci.ocamllabs.io%2Fbadge%2Focurrent%2Focaml-multicore-ci%2Fmaster&logo=ocaml)](https://ci.ocamllabs.io/github/ocurrent/ocaml-multicore-ci)
 
-This is an [OCurrent][] pipeline that provides CI for OCaml projects hosted on GitHub.
+This is an [OCurrent][] pipeline that provides CI for OCaml projects hosted on GitHub,
+using multicore variants of the OCaml compiler.
+
+This is currently a fork of [ocaml-ci][].  We expect to merge features into
+ocaml-ci or OCurrent over time, so that this repo becomes thinner.  Refer to
+ocaml-ci and OCurrent documentation for general architecture and design
+decisions.
 
 The pipeline is defined in [pipeline.ml][]. It:
 
@@ -39,7 +45,7 @@ If you forget, `git submodule update --init` will fetch them.
 To test the CI on a local Git clone, use:
 
 ```sh
-dune exec -- ocaml-ci-local /path/to/project
+dune exec -- ocaml-multicore-ci-local /path/to/project
 ```
 
 This will build the project as the real CI would,
@@ -63,13 +69,13 @@ to register a webhook there sending push events to the CI's `/webhooks/github` p
 
 The service provides a [Cap'n Proto endpoint][capnp-api] and a command-line client that uses it.
 You will need to be given the `ocaml-ci.cap` file, which grants access to the API.
-The client can be built and run using `dune exec -- ocaml-ci --ci-cap=ocaml-ci.cap ...`, or
-installed as `ocaml-ci`.
+The client can be built and run using `dune exec -- ocaml-multicore-ci --ci-cap=ocaml-ci.cap ...`, or
+installed as `ocaml-multicore-ci`.
 
-To see the branches and PRs that ocaml-ci is monitoring in a repository:
+To see the branches and PRs that ocaml-multicore-ci is monitoring in a repository:
 
 ```bash
-$ ocaml-ci mirage/irmin
+$ ocaml-multicore-ci mirage/irmin
 615364620f4233cb82a96144824eb6ad5d1104f0 refs/heads/1.4
 e0fcf0d336544650ca5237b356cfce4a48378245 refs/heads/master
 6c46d1de5e67a3f504fc55af1d644d852c946533 refs/heads/mirage-dev
@@ -87,14 +93,14 @@ d8161e6cbf06c3005a080d4df209f7de67d6fa5c refs/pull/851/head
 You can pass either the reference (e.g. `refs/heads/master`) or the commit hash to choose one of them.
 
 ```bash
-$ ocaml-ci mirage/irmin refs/heads/master
+$ ocaml-multicore-ci mirage/irmin refs/heads/master
 alpine-3.10-ocaml-4.08
 ```
 
 To view the log (following it if incomplete):
 
 ```bash
-$ ocaml-ci mirage/irmin refs/heads/master alpine-3.10-ocaml-4.08 log
+$ ocaml-multicore-ci mirage/irmin refs/heads/master alpine-3.10-ocaml-4.08 log
 [...]
 - Test Successful in 17.643s. 99 tests run.
 -> compiled  irmin-unix.dev
@@ -114,9 +120,10 @@ and for PRs you can omit the trailing `/head`. For commits, you must give at
 least the first 6 characters. e.g.
 
 ```bash
-$ ocaml-ci mirage/irmin pull/867 alpine-3.10-ocaml-4.08 cancel
+$ ocaml-multicore-ci mirage/irmin pull/867 alpine-3.10-ocaml-4.08 cancel
 ```
 
 [OCurrent]: https://github.com/ocurrent/ocurrent
+[ocaml-ci]: https://github.com/ocurrent/ocaml-ci
 [pipeline.ml]: https://github.com/ocurrent/ocaml-multicore-ci/blob/master/service/pipeline.ml
 [capnp-api]: https://github.com/ocurrent/ocaml-multicore-ci/blob/master/api/schema.capnp

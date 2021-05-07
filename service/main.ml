@@ -3,7 +3,7 @@ open Capnp_rpc_lwt
 
 module Metrics = struct
   open Prometheus
-  open Ocaml_ci
+  open Ocaml_multicore_ci
 
   let namespace = "ocamlci"
 
@@ -40,7 +40,7 @@ module Metrics = struct
     Gauge.set (master "active") (float_of_int active)
 end
 
-let solver = Ocaml_ci.Solver_pool.spawn_local ()
+let solver = Ocaml_multicore_ci.Solver_pool.spawn_local ()
 
 let () =
   Prometheus_unix.Logging.init ();
@@ -99,7 +99,7 @@ let main config mode app capnp_address github_auth submission_uri : ('a, [`Msg o
       Routes.(s "webhooks" / s "github" /? nil @--> Current_github.webhook) ::
       Routes.(s "login" /? nil @--> Current_github.Auth.login github_auth) ::
       Current_web.routes engine in
-    let site = Current_web.Site.v ?authn ~has_role ~secure_cookies ~name:"ocaml-ci" routes in
+    let site = Current_web.Site.v ?authn ~has_role ~secure_cookies ~name:"ocaml-multicore-ci" routes in
     Lwt.choose [
       Current.Engine.thread engine;
       Current_web.run ~mode site;
@@ -130,6 +130,6 @@ let cmd =
   let doc = "Build OCaml projects on GitHub" in
   Term.(term_result (const main $ Current.Config.cmdliner $ Current_web.cmdliner $
                      Current_github.App.cmdliner $ capnp_address $ Current_github.Auth.cmdliner $ submission_service)),
-  Term.info "ocaml-ci" ~doc
+  Term.info "ocaml-multicore-ci" ~doc
 
 let () = Term.(exit @@ eval cmd)

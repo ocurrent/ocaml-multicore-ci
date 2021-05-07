@@ -6,7 +6,7 @@ type t = {
 } [@@deriving yojson, ord]
 
 let of_worker w =
-  let module W = Ocaml_ci_api.Worker.Selection in
+  let module W = Ocaml_multicore_ci_api.Worker.Selection in
   let { W.id; packages; commits } = w in
   let variant = Variant.of_string id in
   (* The primary opam-repository commit is required to be the first in the list.

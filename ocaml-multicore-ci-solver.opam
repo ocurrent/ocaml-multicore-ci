@@ -3,8 +3,8 @@ opam-version: "2.0"
 synopsis: "Choose package versions to test"
 maintainer: ["talex5@gmail.com"]
 authors: ["talex5@gmail.com"]
-homepage: "https://github.com/ocurrent/ocaml-ci"
-bug-reports: "https://github.com/ocurrent/ocaml-ci/issues"
+homepage: "https://github.com/ocurrent/ocaml-multicore-ci"
+bug-reports: "https://github.com/ocurrent/ocaml-multicore-ci/issues"
 depends: [
   "dune" {>= "2.0"}
   "ppx_deriving_yojson" {>= "3.6.1"}
@@ -13,7 +13,7 @@ depends: [
   "lwt"
   "logs"
   "fmt"
-  "ocaml-ci-api"
+  "ocaml-multicore-ci-api"
   "conf-libev"
   "opam-0install" {>= "0.2"}
   "git-unix" {>= "3.2.0"}
@@ -33,4 +33,4 @@ build: [
     "@doc" {with-doc}
   ]
 ]
-dev-repo: "git+https://github.com/ocurrent/ocaml-ci.git"
+dev-repo: "git+https://github.com/ocurrent/ocaml-multicore-ci.git"

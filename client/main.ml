@@ -2,7 +2,7 @@ open Astring
 open Lwt.Infix
 open Capnp_rpc_lwt
 
-module Client = Ocaml_ci_api.Client
+module Client = Ocaml_multicore_ci_api.Client
 
 let () =
   Logging.init ~level:Logs.Warning ()
@@ -206,7 +206,7 @@ let to_fn = function
   | `Show_status -> show_status
 
 let cmd =
-  let doc = "Client for ocaml-ci" in
+  let doc = "Client for ocaml-multicore-ci" in
   let main ci_uri repo target variant job_op =
     let job_op = to_fn job_op in
     match Lwt_main.run (main ~ci_uri ~repo ~target ~variant ~job_op) with
@@ -215,6 +215,6 @@ let cmd =
     | Error `Msg m -> Fmt.epr "%s@." m; exit 1
   in
   Term.(const main $ cap $ repo $ target $ variant $ job_op),
-  Term.info "ocaml-ci" ~doc
+  Term.info "ocaml-multicore-ci" ~doc
 
 let () = Term.(exit @@ eval cmd)

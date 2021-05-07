@@ -1,7 +1,7 @@
 open Lwt.Infix
 open Current.Syntax
 
-module Worker = Ocaml_ci_api.Worker
+module Worker = Ocaml_multicore_ci_api.Worker
 
 let pool = Current.Pool.create ~label:"analyse" 2
 
@@ -29,7 +29,7 @@ let read_file ~max_len path =
 
 (* A logging service that logs to [job]. *)
 let job_log job =
-  let module X = Ocaml_ci_api.Raw.Service.Log in
+  let module X = Ocaml_multicore_ci_api.Raw.Service.Log in
   X.local @@ object
     inherit X.service
 
@@ -158,7 +158,7 @@ module Analysis = struct
       Current_git.Commit_id.(repo commit, hash commit)
     ) in
     let request =
-      { Ocaml_ci_api.Worker.Solve_request.
+      { Ocaml_multicore_ci_api.Worker.Solve_request.
         opam_repository_commits = opam_commits_as_strs;
         root_pkgs;
         pinned_pkgs;
@@ -166,7 +166,7 @@ module Analysis = struct
       }
     in
     Capnp_rpc_lwt.Capability.with_ref (job_log job) @@ fun log ->
-    Ocaml_ci_api.Solver.solve solver request ~log >|= function
+    Ocaml_multicore_ci_api.Solver.solve solver request ~log >|= function
     | Ok [] -> Fmt.error_msg "No solution found for any supported platform"
     | Ok x -> Ok (List.map Selection.of_worker x)
     | Error (`Msg msg) -> Fmt.error_msg "Error from solver: %s" msg
@@ -220,7 +220,7 @@ module Analysis = struct
 end
 
 module Examine = struct
-  type t = Ocaml_ci_api.Solver.t
+  type t = Ocaml_multicore_ci_api.Solver.t
 
   module Key = struct
     type t = Current_git.Commit.t

@@ -52,4 +52,4 @@ let () =
       export service ~on:Lwt_unix.stdin
     end
   | [| _prog; "--worker"; commits_str |] -> Solver.main (Remote_commit.list_of_string_or_fail commits_str)
-  | args -> Fmt.failwith "Usage: ocaml-ci-solver (got %a)" Fmt.(array (quote string)) args
+  | args -> Fmt.failwith "Usage: ocaml-multicore-ci-solver (got %a)" Fmt.(array (quote string)) args

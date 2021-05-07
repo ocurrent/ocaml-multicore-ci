@@ -1,5 +1,5 @@
 open Current.Syntax
-open Ocaml_ci
+open Ocaml_multicore_ci
 
 module Git = Current_git
 module Github = Current_github

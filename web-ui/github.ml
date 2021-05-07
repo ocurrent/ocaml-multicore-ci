@@ -1,8 +1,8 @@
 open Lwt.Infix
 
 module Capability = Capnp_rpc_lwt.Capability
-module Client = Ocaml_ci_api.Client
-module Common = Ocaml_ci_api.Common
+module Client = Ocaml_multicore_ci_api.Client
+module Common = Ocaml_multicore_ci_api.Common
 module Server = Cohttp_lwt_unix.Server
 module Response = Cohttp.Response.Make(Server.IO)
 module Transfer_IO = Cohttp__Transfer_io.Make(Server.IO)

@@ -4,5 +4,5 @@ let () =
   Unix.putenv "GIT_COMMITTER_NAME" "test";
   Unix.putenv "EMAIL" "test@example.com";
   Lwt_main.run
-  @@ Alcotest_lwt.run "ocaml-ci"
+  @@ Alcotest_lwt.run "ocaml-multicore-ci"
        [ ("index", Test_index.tests); ("analyse", Test_analyse.tests) ]

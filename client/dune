@@ -1,9 +1,9 @@
 (executable
- (public_name ocaml-ci)
- (package ocaml-ci-client)
+ (public_name ocaml-multicore-ci)
+ (package ocaml-multicore-ci-client)
  (name main)
  (libraries
-  ocaml-ci-api
+  ocaml-multicore-ci-api
   current_rpc
   capnp-rpc-unix
   logs.fmt

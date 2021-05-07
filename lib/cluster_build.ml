@@ -2,7 +2,7 @@ open Current.Syntax
 open Capnp_rpc_lwt
 open Lwt.Infix
 
-let src = Logs.Src.create "ocaml_ci.cluster_build" ~doc:"ocaml-ci ocluster builder"
+let src = Logs.Src.create "ocaml_multicore_ci.cluster_build" ~doc:"ocaml-ci ocluster builder"
 module Log = (val Logs.src_log src : Logs.LOG)
 
 module Image = Current_docker.Raw.Image

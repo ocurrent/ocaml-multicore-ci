@@ -5,9 +5,9 @@ let () =
   Logs.set_reporter @@ Logs_fmt.reporter ()
 
 module Analysis = struct
-  include Ocaml_ci.Analyse.Analysis
+  include Ocaml_multicore_ci.Analyse.Analysis
 
-  type ocamlformat_source = Ocaml_ci.Analyse_ocamlformat.source =
+  type ocamlformat_source = Ocaml_multicore_ci.Analyse_ocamlformat.source =
     | Opam of { version : string }
     | Vendored of { path : string }
   [@@deriving yojson, eq]
@@ -30,7 +30,7 @@ module Analysis = struct
 
 
   let of_dir ~switch ~job ~package_name ~platforms ~solver_dir ~opam_repository_commits d =
-    let solver = Ocaml_ci.Solver_pool.spawn_local ~solver_dir () in
+    let solver = Ocaml_multicore_ci.Solver_pool.spawn_local ~solver_dir () in
     Lwt_switch.add_hook (Some switch) (fun () ->
         Capnp_rpc_lwt.Capability.dec_ref solver;
         Lwt.return_unit

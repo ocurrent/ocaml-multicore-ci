@@ -1,5 +1,5 @@
 let debian_10_vars ocaml_package ocaml_version =
-  { Ocaml_ci_api.Worker.Vars.
+  { Ocaml_multicore_ci_api.Worker.Vars.
     os = "debian";
     arch = "x86_64";
     os_family = "debian";
@@ -10,7 +10,7 @@ let debian_10_vars ocaml_package ocaml_version =
   }
 
 let var distro ov =
-  Ocaml_ci.Variant.v ~arch:`X86_64 ~distro ~ocaml_version:(Ocaml_version.of_string_exn ov) |>
+  Ocaml_multicore_ci.Variant.v ~arch:`X86_64 ~distro ~ocaml_version:(Ocaml_version.of_string_exn ov) |>
   function Ok v -> v | Error (`Msg m) -> failwith m
 
 let v = [

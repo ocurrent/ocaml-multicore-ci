@@ -37,10 +37,10 @@ RUN opam pin add -yn current_ansi.dev "./ocurrent" && \
     opam pin add -yn dockerfile.dev "./ocaml-dockerfile" && \
     opam pin add -yn dockerfile-opam.dev "./ocaml-dockerfile" && \
     opam pin add -yn ocluster-api.dev "./ocluster"
-COPY --chown=opam ocaml-ci-service.opam ocaml-ci-api.opam ocaml-ci-solver.opam /src/
+COPY --chown=opam ocaml-multicore-ci-service.opam ocaml-multicore-ci-api.opam ocaml-multicore-ci-solver.opam /src/
 RUN opam install -y --deps-only .
 ADD --chown=opam . .
-RUN opam config exec -- dune build ./_build/install/default/bin/ocaml-ci-service
+RUN opam config exec -- dune build ./_build/install/default/bin/ocaml-multicore-ci-service
 
 FROM debian:10
 RUN apt-get update && apt-get install libev4 openssh-client curl gnupg2 dumb-init git graphviz libsqlite3-dev ca-certificates netbase -y --no-install-recommends
@@ -48,8 +48,8 @@ RUN curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add -
 RUN echo 'deb [arch=amd64] https://download.docker.com/linux/debian buster stable' >> /etc/apt/sources.list
 RUN apt-get update && apt-get install docker-ce -y --no-install-recommends
 WORKDIR /var/lib/ocurrent
-ENTRYPOINT ["dumb-init", "/usr/local/bin/ocaml-ci-service"]
+ENTRYPOINT ["dumb-init", "/usr/local/bin/ocaml-multicore-ci-service"]
 ENV OCAMLRUNPARAM=a=2
 # Enable experimental for docker manifest support
 ENV DOCKER_CLI_EXPERIMENTAL=enabled
-COPY --from=build /src/_build/install/default/bin/ocaml-ci-service /src/_build/install/default/bin/ocaml-ci-solver /usr/local/bin/
+COPY --from=build /src/_build/install/default/bin/ocaml-multicore-ci-service /src/_build/install/default/bin/ocaml-multicore-ci-solver /usr/local/bin/

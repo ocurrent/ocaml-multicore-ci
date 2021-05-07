@@ -38,9 +38,9 @@ module Builders = struct
     let docker_context, pool =
       Some docker_context, Current.Pool.create ~label:("docker-" ^ docker_context) 20
     in
-    { Ocaml_ci.Builder.docker_context; pool; build_timeout }
+    { Ocaml_multicore_ci.Builder.docker_context; pool; build_timeout }
 
-  let local = { Ocaml_ci.Builder.docker_context = None; pool = dev_pool; build_timeout }
+  let local = { Ocaml_multicore_ci.Builder.docker_context = None; pool = dev_pool; build_timeout }
 end
 
 module OV = Ocaml_version
@@ -52,7 +52,7 @@ let trunk_compiler = OV.(Sources.trunk |> without_patch)
 
 type platform = {
   label : string;
-  builder : Ocaml_ci.Builder.t;
+  builder : Ocaml_multicore_ci.Builder.t;
   pool : string;
   distro : string;
   ocaml_version : OV.t;
