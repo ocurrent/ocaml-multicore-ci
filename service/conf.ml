@@ -99,7 +99,7 @@ let platforms =
         List.map make_release ovs @ [make_release ~arch:`I386 (List.hd ovs)]
     end
   | `Multicore ->
-    let ovs = List.map OV.of_string_exn ["4.10+multicore"; "4.12+domains"] in
+    let ovs = List.map OV.of_string_exn ["4.10+multicore"; "4.12+domains"; "4.12+domains+effects"] in
     List.map make_release ovs
 
 let opam_repository_repos = [
