@@ -96,7 +96,6 @@ let package_and_selection_to_opam_spec ~analysis ~package selection =
 let make_opam_specs analysis =
   match Analyse.Analysis.selections analysis with
   | `Not_opam (package, selections) ->
-                  Format.eprintf "Not_opam %s" package;
     selections |> List.map (package_and_selection_to_opam_spec ~analysis ~package)
   | `Opam_monorepo config ->
     let lint_selection = Opam_monorepo.selection_of_config config in
