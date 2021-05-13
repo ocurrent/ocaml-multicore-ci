@@ -2,8 +2,6 @@ module Worker = Ocaml_multicore_ci_api.Worker
 module Solver = Opam_0install.Solver.Make(Git_context)
 module Store = Git_unix.Store
 
-open Lwt.Infix
-
 let env (vars : Worker.Vars.t) =
   Opam_0install.Dir_context.std_env
     ~arch:vars.arch
@@ -48,7 +46,7 @@ let main commits =
       Lwt_list.fold_left_s (fun acc commit ->
         let repo_url = commit.Remote_commit.repo in
         let hash = Store.Hash.of_hex commit.Remote_commit.hash in
-        Opam_repository.open_store ~repo_url () >>= fun store ->
+        let%lwt store = Opam_repository.open_store ~repo_url () in
         Git_context.read_packages ~acc store hash
       ) OpamPackage.Name.Map.empty commits
     end

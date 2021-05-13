@@ -95,7 +95,7 @@ let read_dir store hash =
   | Ok _ -> None
 
 let read_package store pkg hash =
-  Search.find store hash (`Path ["opam"]) >>= function
+  match%lwt Search.find store hash (`Path ["opam"]) with
   | None -> Fmt.failwith "opam file not found for %s" (OpamPackage.to_string pkg)
   | Some hash ->
     Store.read store hash >|= function
@@ -104,7 +104,7 @@ let read_package store pkg hash =
 
 (* Get a map of the versions inside [entry] (an entry under "packages") *)
 let read_versions store (entry : Store.Value.Tree.entry) =
-  read_dir store entry.node >>= function
+  match%lwt read_dir store entry.node with
   | None -> Lwt.return_none
   | Some tree ->
     Store.Value.Tree.to_list tree |> Lwt_list.fold_left_s (fun acc (entry : Store.Value.Tree.entry) ->
@@ -134,10 +134,10 @@ let add_versions name versions packages_by_name =
     packages_by_name
 
 let read_packages ?acc:(result_acc = OpamPackage.Name.Map.empty) store commit =
-  Search.find store commit (`Commit (`Path ["packages"])) >>= function
+  match%lwt Search.find store commit (`Commit (`Path ["packages"])) with
   | None -> Fmt.failwith "Failed to find packages directory!"
   | Some tree_hash ->
-    read_dir store tree_hash >>= function
+    match%lwt read_dir store tree_hash with
     | None -> Fmt.failwith "'packages' is not a directory!"
     | Some tree ->
       Store.Value.Tree.to_list tree |> Lwt_list.fold_left_s (fun acc (entry : Store.Value.Tree.entry) ->

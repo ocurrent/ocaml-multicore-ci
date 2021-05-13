@@ -2,5 +2,5 @@
   (name main)
   (public_name ocaml-multicore-ci-solver)
   (package ocaml-multicore-ci-solver)
-  (preprocess (pps ppx_deriving.std ppx_deriving_yojson))
+  (preprocess (pps lwt_ppx ppx_deriving.std ppx_deriving_yojson))
   (libraries lwt.unix ocaml-multicore-ci-api ppx_deriving_yojson.runtime opam-0install capnp-rpc-unix git-unix str))
