@@ -5,4 +5,5 @@ _opam
 var
 *.cap
 .*.swp
+.idea
 .vscode
