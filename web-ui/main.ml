@@ -9,19 +9,53 @@ module Server = Cohttp_lwt_unix.Server
 let errorf fmt =
   fmt |> Fmt.kstrf @@ fun msg -> Error (`Msg msg)
 
+let add_cors_headers (headers: Cohttp.Header.t): Cohttp.Header.t =
+  Cohttp.Header.add_list headers [
+    ("access-control-allow-origin", "*");
+    ("access-control-allow-headers", "Accept, Content-Type");
+    ("access-control-allow-methods", "GET, HEAD, POST, DELETE, OPTIONS, PUT, PATCH")
+  ]
+
 let normal_response x =
   x >|= fun x -> `Response x
 
-let handle_request ~backend _conn request _body =
+let docroot = "web-app/build"
+
+let handle_request ~backend ~graphql_callback conn request body =
   let meth = Cohttp.Request.meth request in
   let uri = Cohttp.Request.uri request in
   let path = Uri.path uri in
   let path = Uri.pct_decode path in
+  let response_headers = Cohttp.Header.init () in
+  let response_headers = add_cors_headers response_headers in
   Log.info (fun f -> f "HTTP %s %S" (Cohttp.Code.string_of_method meth) path);
   match meth, String.cuts ~sep:"/" ~empty:false path with
-  | `GET, ([] | ["index.html"]) ->
-    let body = Homepage.render () in
-    Server.respond_string ~status:`OK ~body () |> normal_response
+  | `OPTIONS, ("graphql" :: _) ->
+    Server.respond_string ~status:`OK ~headers:response_headers ~body:"" () |> normal_response
+  | _, ("graphql" :: _) ->
+    let resp = graphql_callback conn request body in
+    let open Server.IO in
+    let open Cohttp.Response in
+    resp >>= (function
+      | `Response(resp, body) ->
+        let resp_with_cors =
+            make
+              ~version:resp.version
+              ~status:resp.status
+              ~flush:resp.flush
+              ~encoding:resp.encoding
+              ~headers:(add_cors_headers resp.headers) ()
+        in
+        return @@ `Response(resp_with_cors, body)
+      | resp -> return resp
+    )
+  | `GET, ([] | "jobs" :: _ | "results" :: _) ->
+    let index_uri = Uri.with_uri ~path:(Some "/index.html") uri in
+    let fname = Server.resolve_local_file ~docroot ~uri:index_uri in
+    Server.respond_file ~headers:response_headers ~fname () |> normal_response
+  | `GET, (["index.html"] | ("images" :: _) | ("static" :: _)) ->
+    let fname = Server.resolve_local_file ~docroot ~uri in
+    Server.respond_file ~fname ~headers:response_headers () |> normal_response
   | `GET, ["css"; "style.css"] ->
     Style.get () |> normal_response
   | meth, ("github" :: path) ->
@@ -34,12 +68,16 @@ let handle_request ~backend _conn request _body =
 let pp_mode f mode =
   Sexplib.Sexp.pp_hum f (Conduit_lwt_unix.sexp_of_server mode)
 
+module Graphql_cohttp_lwt = Graphql_cohttp.Make (Graphql_lwt.Schema) (Cohttp_lwt_unix.IO) (Cohttp_lwt.Body)
+
 let main port backend_uri prometheus_config =
   Lwt_main.run begin
     let vat = Capnp_rpc_unix.client_only_vat () in
     let backend_sr = Capnp_rpc_unix.Vat.import_exn vat backend_uri in
     let backend = Backend.make backend_sr in
-    let config = Server.make_response_action ~callback:(handle_request ~backend) () in
+    let%lwt ci = Backend.ci backend in
+    let graphql_callback = Graphql_cohttp_lwt.make_callback (fun _req -> ()) (Ci_graphql.schema ci) in
+    let config = Server.make_response_action ~callback:(handle_request ~backend ~graphql_callback) () in
     let mode = `TCP (`Port port) in
     Log.info (fun f -> f "Starting web server: %a" pp_mode mode);
     let web =

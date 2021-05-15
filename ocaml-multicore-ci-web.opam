@@ -15,10 +15,14 @@ depends: [
   "prometheus-app" {>= "1.0"}
   "cmdliner"
   "lwt"
+  "lwt_ppx"
   "cohttp-lwt-unix" {>= "2.2.0"}
   "tyxml"
   "capnp-rpc-unix"
   "ocaml-multicore-ci-api"
+  "graphql"
+  "graphql-cohttp"
+  "graphql-lwt"
   "conf-libev"
   "ppx_deriving_yojson"
 ]
