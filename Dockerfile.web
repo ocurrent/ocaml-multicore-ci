@@ -3,7 +3,6 @@ RUN sudo apt-get update && sudo apt-get install libev-dev capnproto m4 pkg-confi
 RUN cd ~/opam-repository && git pull origin master && git reset --hard 9bbd0b24881972dc797346d711598d22e54edf0b && opam update
 COPY --chown=opam \
 	ocurrent/current_rpc.opam \
-	ocurrent/current_ansi.opam \
 	/src/ocurrent/
 WORKDIR /src
 RUN opam pin -yn add ./ocurrent
