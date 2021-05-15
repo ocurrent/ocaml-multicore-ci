@@ -2,7 +2,6 @@ FROM ocaml/opam:debian-10-ocaml-4.10 AS build
 RUN sudo apt-get update && sudo apt-get install libev-dev capnproto m4 pkg-config libsqlite3-dev libgmp-dev graphviz -y --no-install-recommends
 RUN cd ~/opam-repository && git pull origin -q master && git reset --hard 1d088847ed8e4e6329c1f4a79961eb647fac0aea && opam update
 COPY --chown=opam \
-	ocurrent/current_ansi.opam \
 	ocurrent/current_docker.opam \
 	ocurrent/current_github.opam \
 	ocurrent/current_git.opam \
@@ -23,8 +22,7 @@ COPY --chown=opam \
 	ocaml-dockerfile/dockerfile*.opam \
 	/src/ocaml-dockerfile/
 WORKDIR /src
-RUN opam pin add -yn current_ansi.dev "./ocurrent" && \
-    opam pin add -yn current_docker.dev "./ocurrent" && \
+RUN opam pin add -yn current_docker.dev "./ocurrent" && \
     opam pin add -yn current_github.dev "./ocurrent" && \
     opam pin add -yn current_git.dev "./ocurrent" && \
     opam pin add -yn current_incr.dev "./ocurrent" && \
