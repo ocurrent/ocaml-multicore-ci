@@ -10,6 +10,7 @@ let () =
 let make_pipeline repos =
   let repos = repos |> List.map (fun repo -> Current_git.Local.v (Fpath.v repo)) in
   match repos with
+  | [] -> Pipeline.local_test_fixed ~solver
   | [repo] -> Pipeline.local_test ~solver repo
   | _ -> Pipeline.local_test_multiple ~solver repos
 
@@ -30,7 +31,7 @@ open Cmdliner
 
 let repos =
   let open Arg in
-  non_empty &
+  value &
   pos_all dir [] &
   info
     ~doc:"The directory containing the .git subdirectory. May be specified multiple times."

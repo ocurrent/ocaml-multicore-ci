@@ -1,3 +1,5 @@
+let ci_pipeline_name = "ocaml-multicore-ci"
+
 let profile =
   match Sys.getenv_opt "CI_PROFILE" with
   | Some "production" -> `Production
@@ -115,6 +117,17 @@ let opam_repository_commits =
   chosen_repos |>
     List.map (fun r -> Github.Api.Anonymous.head_of (List.assoc r opam_repository_repos) (`Ref "refs/heads/master")) |>
     Current.list_seq
+
+let fixed_repos = [
+  "https://github.com/AbsInt/CompCert";
+  "https://github.com/coq/coq";
+  "https://github.com/janestreet/async";
+  "https://github.com/janestreet/base";
+  "https://github.com/janestreet/core";
+  "https://github.com/janestreet/core_kernel";
+  "https://github.com/ocaml-batteries-team/batteries-included";
+  "https://github.com/ocsigen/lwt";
+]
 
 let build_mechanism_for_package package =
   match package with

@@ -24,7 +24,7 @@ module Op = struct
     type t = {
       pool : string;                            (* The build pool to use (e.g. "linux-arm64") *)
       commit : Current_git.Commit_id.t;         (* The source code to build and test *)
-      repo : Current_github.Repo_id.t;          (* Used to choose a build cache *)
+      repo : string;                            (* Used to choose a build cache *)
       label : string;                           (* A unique ID for this build within the commit *)
     }
 
@@ -32,7 +32,7 @@ module Op = struct
       `Assoc [
         "pool", `String pool;
         "commit", `String (Current_git.Commit_id.hash commit);
-        "repo", `String (Fmt.to_to_string Current_github.Repo_id.pp repo);
+        "repo", `String repo;
         "label", `String label;
       ]
 
@@ -61,7 +61,7 @@ module Op = struct
   let hash_packages packages =
     Digest.string (String.concat "," packages) |> Digest.to_hex
 
-  let get_cache_hint { Current_github.Repo_id.owner; name } { Value.base; variant; ty } =
+  let get_cache_hint repo { Value.base; variant; ty } =
     let deps =
       match ty with
       | `Opam (`Build, selection, _) -> hash_packages selection.packages
@@ -71,8 +71,8 @@ module Op = struct
       | `Opam_fmt _ -> "ocamlformat"
       | `Opam_monorepo _ -> "opam-monorepo-" ^ (Variant.to_string variant)
     in
-    Fmt.strf "%s/%s-%s-%a-%s"
-      owner name
+    Fmt.strf "%s-%s-%a-%s"
+      repo
       (Image.hash base)
       Variant.pp variant deps
 
@@ -106,8 +106,8 @@ module Op = struct
     Lwt_result.return ()
 
   let pp f ({ Key.pool; repo; commit; label }, _) =
-    Fmt.pf f "test %a %a (%s:%s)"
-      Current_github.Repo_id.pp repo
+    Fmt.pf f "test %s %a (%s:%s)"
+      repo
       Current_git.Commit_id.pp commit
       pool label
 
