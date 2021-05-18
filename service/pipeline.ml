@@ -290,7 +290,7 @@ let v ?ocluster ~app ~solver () =
     installations |> Current.list_iter ~collapse_key:"org" (module Github.Installation) @@ (build_installation ?ocluster ~solver)
   in
   let build_fixed =
-    clone_fixed_repos () |> Current.list_iter (module Repo_clone) (build_from_clone ~solver)
+    clone_fixed_repos () |> Current.list_iter (module Repo_clone) (build_from_clone ?ocluster ~solver)
   in
   Current.all [
     build_installations;
