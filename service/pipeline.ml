@@ -60,19 +60,19 @@ let set_active_repos ~installation repos =
   |> Index.set_active_repos ~owner;
   repos
 
-let set_active_refs ~repo xs =
+let set_active_refs ~repo commits =
   let+ repo = repo
-  and+ xs = xs in
+  and+ commits = commits in
   let repo = Github.Api.Repo.id repo in
   Index.set_active_refs ~repo (
-    xs |> List.fold_left (fun acc x ->
-        let commit = Github.Api.Commit.id x in
-        let gref = Git.Commit_id.gref commit in
-        let hash = Git.Commit_id.hash commit in
+    commits |> List.fold_left (fun acc commit ->
+        let commit_id = Github.Api.Commit.id commit in
+        let gref = Git.Commit_id.gref commit_id in
+        let hash = Git.Commit_id.hash commit_id in
         Index.Ref_map.add gref hash acc
       ) Index.Ref_map.empty
   );
-  xs
+  commits
 
 let get_job_id x =
   let+ md = Current.Analysis.metadata x in
