@@ -16,7 +16,7 @@ let owner_name_from_url url =
     List.map (Str.global_replace sanitize_re "_")
   in
   match bits with
-  | [owner; name] -> (owner, name)
+  | [name; owner] -> (owner, name)
   | _ -> assert false
 
 let repo_id_from_url url =
