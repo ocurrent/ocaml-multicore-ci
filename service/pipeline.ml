@@ -106,6 +106,9 @@ let build_with_docker ?ocluster ~repo ?label ~analysis source =
     "(analysis)", (analysis_result, analysis_id);
   ]
 
+let analysis_component ?label ~solver commit =
+  Analyse.examine ?label ~solver ~platforms ~opam_repository_commits commit
+
 let local_test ?label ~solver repo () =
   let src = Git.Local.head_commit repo in
   let repo = Current.return { Github.Repo_id.owner = "local"; name = "test" } in
@@ -139,17 +142,14 @@ let clone_fixed_repos () =
     )
   ) |> List.flatten
 
-let analyse ~solver commit =
-  Analyse.examine ~solver ~platforms ~opam_repository_commits commit
-
 let summarise_builds builds =
   builds
   |> Current.map (List.map (fun (variant, (build, _job)) -> variant, build))
   |> Current.map summarise
 
-let analyse_build_summarise ?ocluster ~solver ~repo commit =
-  let analysis = analyse ~solver commit in
-  let builds = build_with_docker ?ocluster ~repo ~analysis commit in
+let analyse_build_summarise ?ocluster ~solver ~repo ?label commit =
+  let analysis = analysis_component ~solver ?label commit in
+  let builds = build_with_docker ?ocluster ~repo ?label ~analysis commit in
   (builds, summarise_builds builds)
 
 let fetch_analyse_build_summarise ?ocluster ~solver ~repo head =
@@ -170,9 +170,11 @@ let build_installation ?ocluster ~solver installation =
 
 let build_from_clone ?ocluster ~solver repo_clone =
   let (repo_url, commit) = repo_clone in
+  let commit = Build_from_clone_component.v ~repo_url commit in
   let repo_id = Repo_url_utils.repo_id_from_url repo_url in
   let hash = Current.map Git.Commit.hash commit in
-  let (builds, summary) = analyse_build_summarise ?ocluster ~solver ~repo:(Current.return repo_url) commit in
+  let label = Repo_url_utils.owner_slash_name_from_url repo_url in
+  let (builds, summary) = analyse_build_summarise ?ocluster ~solver ~label ~repo:(Current.return repo_url) commit in
   record_builds ~repo:(Current.return repo_id) ~hash ~builds ~summary
 
 let v ?ocluster ~app ~solver () =

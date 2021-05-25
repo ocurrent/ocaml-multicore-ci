@@ -290,17 +290,14 @@ end
 
 module Examine_cache = Current_cache.Generic(Examine)
 
-let add_parens str =
-  match str with
-  | None -> ""
-  | Some s -> Format.sprintf " (%s)" s
+let string_of_option str =
+  match str with None -> "" | Some s -> s
 
 let remap_platforms platforms =
   platforms |> List.map (fun { Platform.variant; vars; _ } -> (variant, vars))
 
 let examine ?label ~solver ~platforms ~opam_repository_commits src =
-  let label_parens = add_parens label in
-  Current.component "Analyse%s" label_parens |>
+  Current.component "Analyse@ %s" (string_of_option label) |>
   let> src = src
   and> opam_repository_commits = opam_repository_commits
   and> platforms = platforms in
