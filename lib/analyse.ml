@@ -1,5 +1,7 @@
 open Lwt.Infix
 open Current.Syntax
+open Pipeline_utils
+open Repo_url_utils
 
 module Worker = Ocaml_multicore_ci_api.Worker
 
@@ -72,6 +74,15 @@ module Analysis = struct
   let selections t = t.selections
 
   let is_test_dir = Astring.String.is_prefix ~affix:"test"
+
+  let dummy_analysis ~platforms ~opam_repository_commits ~package_name =
+    { opam_files = [];
+      ocamlformat_source = None;
+      selections = `Not_opam (
+        package_name,
+        make_placeholder_selections ~platforms ~opam_repository_commits
+      );
+    }
 
   let check_opam_version =
     let version_2 = OpamVersion.of_string "2" in
@@ -205,7 +216,9 @@ module Analysis = struct
         )
     in
     Analyse_ocamlformat.get_ocamlformat_source job ~opam_files ~root:dir >>!= fun ocamlformat_source ->
-    if opam_files = [] then Lwt_result.return { opam_files = []; ocamlformat_source = None; selections = `Not_opam (package_name, make_placeholder_selections ~platforms ~opam_repository_commits)}
+    if opam_files = [] then Lwt_result.return (
+      dummy_analysis ~platforms ~opam_repository_commits ~package_name
+    )
     else if List.filter is_toplevel opam_files = [] then Lwt_result.fail (`Msg "No top-level opam files found!")
     else (
       begin
@@ -219,6 +232,15 @@ module Analysis = struct
     )
 end
 
+let platform_to_yojson (variant, vars) =
+  `Assoc [
+    "variant", Variant.to_yojson variant;
+    "vars", Worker.Vars.to_yojson vars
+  ]
+
+let platforms_to_yojson platforms =
+  `List (List.map platform_to_yojson platforms)
+
 module Examine = struct
   type t = Ocaml_multicore_ci_api.Solver.t
 
@@ -227,7 +249,7 @@ module Examine = struct
 
     let digest src =
       let json = `Assoc [
-          "src", `String (Current_git.Commit.hash src);
+          "src", commit_to_yojson src;
         ]
       in
       Yojson.Safe.to_string json
@@ -239,18 +261,12 @@ module Examine = struct
       platforms : (Variant.t * Worker.Vars.t) list;
     }
 
-    let platform_to_yojson (variant, vars) =
-      `Assoc [
-        "variant", Variant.to_yojson variant;
-        "vars", Worker.Vars.to_yojson vars
-      ]
-
     let digest { opam_repository_commits; platforms } =
       let json = `Assoc [
-          "opam-repositories", `List (
-            opam_repository_commits |> List.map (fun x -> `String (Current_git.Commit_id.digest x))
-          );
-          "platforms", `List (List.map platform_to_yojson platforms);
+          "opam-repositories",
+            commit_ids_to_yojson opam_repository_commits;
+          "platforms",
+            platforms_to_yojson platforms;
         ]
       in
       Yojson.Safe.to_string json
@@ -259,15 +275,6 @@ module Examine = struct
   module Outcome = Analysis
 
   let id = "ci-analyse"
-
-  let git_ext_re = Str.regexp "\\.git$"
-
-  let package_name_from_commit commit =
-    Current_git.(Commit_id.repo @@ Commit.id commit) |>
-      (String.split_on_char '/') |>
-      List.rev |>
-      List.hd |>
-      Str.global_replace git_ext_re ""
 
   let run solver job src { Value.opam_repository_commits; platforms } =
     let package_name = package_name_from_commit src in
@@ -288,11 +295,14 @@ let add_parens str =
   | None -> ""
   | Some s -> Format.sprintf " (%s)" s
 
+let remap_platforms platforms =
+  platforms |> List.map (fun { Platform.variant; vars; _ } -> (variant, vars))
+
 let examine ?label ~solver ~platforms ~opam_repository_commits src =
   let label_parens = add_parens label in
   Current.component "Analyse%s" label_parens |>
   let> src = src
   and> opam_repository_commits = opam_repository_commits
   and> platforms = platforms in
-  let platforms = platforms |> List.map (fun { Platform.variant; vars; _ } -> (variant, vars)) in
+  let platforms = remap_platforms platforms in
   Examine_cache.run solver src { Examine.Value.opam_repository_commits; platforms }

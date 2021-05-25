@@ -1,18 +1,18 @@
 open Current.Syntax
 open Ocaml_multicore_ci
+open Pipeline_utils
 
 module Git = Current_git
 module Github = Current_github
 module Docker = Current_docker.Default
+
+let opam_repository_commits = Conf.opam_repository_commits
 
 module Repo_clone = struct
   type t = string * Git.Commit.t
   let compare = compare
   let pp f (repo, r) = Fmt.pf f "%s\n%a" repo Git.Commit.pp_short r
 end
-
-let daily = Current_cache.Schedule.v ~valid_for:(Duration.of_day 1) ()
-let monthly = Current_cache.Schedule.v ~valid_for:(Duration.of_day 30) ()
 
 let current_tagged a b =
   Current.pair (Current.return a) b
@@ -31,48 +31,7 @@ let platforms =
   Current.list_seq (List.map v Conf.platforms)
 
 (* Link for GitHub statuses. *)
-let url ~owner ~name ~hash = Uri.of_string (Printf.sprintf "https://multicore.ci.ocamllabs.io/github/%s/%s/commit/%s" owner name hash)
-
-let github_status_of_state ~head result =
-  let+ head = head
-  and+ result = result in
-  let { Github.Repo_id.owner; name } = Github.Api.Commit.repo_id head in
-  let hash = Github.Api.Commit.hash head in
-  let url = url ~owner ~name ~hash in
-  match result with
-  | Ok _              -> Github.Api.Status.v ~url `Success ~description:"Passed"
-  | Error (`Active _) -> Github.Api.Status.v ~url `Pending
-  | Error (`Msg m)    -> Github.Api.Status.v ~url `Failure ~description:m
-
-let set_active_installations installations =
-  let+ installations = installations in
-  installations
-  |> List.fold_left (fun acc i -> Index.Owner_set.add (Github.Installation.account i) acc) Index.Owner_set.empty
-  |> Index.set_active_owners;
-  installations
-
-let set_active_repos ~installation repos =
-  let+ installation = installation
-  and+ repos = repos in
-  let owner = Github.Installation.account installation in
-  repos
-  |> List.fold_left (fun acc r -> Index.Repo_set.add (Github.Api.Repo.id r).name acc) Index.Repo_set.empty
-  |> Index.set_active_repos ~owner;
-  repos
-
-let set_active_refs ~repo commits =
-  let+ repo = repo
-  and+ commits = commits in
-  let repo = Github.Api.Repo.id repo in
-  Index.set_active_refs ~repo (
-    commits |> List.fold_left (fun acc commit ->
-        let commit_id = Github.Api.Commit.id commit in
-        let gref = Git.Commit_id.gref commit_id in
-        let hash = Git.Commit_id.hash commit_id in
-        Index.Ref_map.add gref hash acc
-      ) Index.Ref_map.empty
-  );
-  commits
+let make_url ~owner ~name ~hash = Uri.of_string (Printf.sprintf "https://multicore.ci.ocamllabs.io/github/%s/%s/commit/%s" owner name hash)
 
 let get_job_id x =
   let+ md = Current.Analysis.metadata x in
@@ -157,42 +116,6 @@ let build_with_docker ?ocluster ~repo ?label ~analysis source =
     "(analysis)", (analysis_result, analysis_id);
   ]
 
-let list_errors ~ok errs =
-  let groups =  (* Group by error message *)
-    List.sort compare errs |> List.fold_left (fun acc (msg, l) ->
-        match acc with
-        | (m2, ls) :: acc' when m2 = msg -> (m2, l :: ls) :: acc'
-        | _ -> (msg, [l]) :: acc
-      ) []
-  in
-  Error (`Msg (
-      match groups with
-      | [] -> "No builds at all!"
-      | [ msg, _ ] when ok = 0 -> msg (* Everything failed with the same error *)
-      | [ msg, ls ] -> Fmt.strf "%a failed: %s" Fmt.(list ~sep:(unit ", ") string) ls msg
-      | _ ->
-        (* Multiple error messages; just list everything that failed. *)
-        let pp_label f (_, l) = Fmt.string f l in
-        Fmt.strf "%a failed" Fmt.(list ~sep:(unit ", ") pp_label) errs
-    ))
-
-let summarise results =
-  results |> List.fold_left (fun (ok, pending, err, skip) -> function
-      | _, Ok `Checked -> (ok, pending, err, skip)  (* Don't count lint checks *)
-      | _, Ok `Built -> (ok + 1, pending, err, skip)
-      | l, Error `Msg m when Astring.String.is_prefix ~affix:"[SKIP]" m -> (ok, pending, err, (m, l) :: skip)
-      | l, Error `Msg m -> (ok, pending, (m, l) :: err, skip)
-      | _, Error `Active _ -> (ok, pending + 1, err, skip)
-    ) (0, 0, [], [])
-  |> fun (ok, pending, err, skip) ->
-  if pending > 0 then Error (`Active `Running)
-  else match ok, err, skip with
-    | 0, [], skip -> list_errors ~ok:0 skip (* Everything was skipped - treat skips as errors *)
-    | _, [], _ -> Ok ()                     (* No errors and at least one success *)
-    | ok, err, _ -> list_errors ~ok err     (* Some errors found - report *)
-
-let opam_repository_commits = Conf.opam_repository_commits
-
 let local_test ?label ~solver repo () =
   let src = Git.Local.head_commit repo in
   let repo = Current.return { Github.Repo_id.owner = "local"; name = "test" } in
@@ -213,37 +136,10 @@ let local_test_multiple ~solver repos () =
     local_test ~label ~solver repo ()
   ) |> Current.all
 
-let status_of_summary = function
-| Ok () -> `Passed
-| Error (`Active `Running) -> `Pending
-| Error (`Msg _) -> `Failed
-
 let clone_fixed_repos () =
   Conf.fixed_repos
   |> List.map (fun repo_url -> current_tagged repo_url (Git.clone ~schedule:daily repo_url))
   |> Current.list_seq
-
-let set_github_status ~head summary =
-  summary
-  |> github_status_of_state ~head
-  |> Github.Api.Commit.set_status head Conf.ci_pipeline_name
-
-let record_builds ~repo ~hash ~builds ~summary : unit Current.t =
-  let status =
-    let+ summary = summary in
-    status_of_summary summary
-  in
-  let+ builds = builds
-  and+ repo = repo
-  and+ hash = hash
-  and+ status = status in
-  let jobs = builds |> List.map (fun (variant, (_, job_id)) -> (variant, job_id)) in
-  Index.record ~repo ~hash ~status jobs
-
-let record_builds_github ~commit ~builds ~summary : unit Current.t =
-  let repo = Current.map Github.Api.Commit.repo_id commit in
-  let hash = Current.map Github.Api.Commit.hash commit in
-  record_builds ~repo ~hash ~builds ~summary
 
 let analyse ~solver commit =
   Analyse.examine ~solver ~platforms ~opam_repository_commits commit
@@ -264,7 +160,8 @@ let fetch_analyse_build_summarise ?ocluster ~solver ~repo head =
   let index = record_builds_github ~commit:head ~builds ~summary in
   Current.all [
     index;
-    set_github_status ~head summary
+    set_github_status ~head ~make_url ~pipeline_name:Conf.ci_pipeline_name
+      summary
   ]
 
 let build_installation ?ocluster ~solver installation =

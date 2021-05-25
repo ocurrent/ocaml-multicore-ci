@@ -19,6 +19,19 @@ let owner_name_from_url url =
   | [name; owner] -> (owner, name)
   | _ -> assert false
 
+let url_gref_from_url url =
+  let bits = url |> String.split_on_char '@' in
+  match bits with
+  | [url; gref] -> (url, gref)
+  | _ -> (url, "master")
+
 let repo_id_from_url url =
   let (owner, name) = owner_name_from_url url in
   { Current_github.Repo_id.owner; name }
+
+let package_name_from_commit commit =
+  Current_git.(Commit_id.repo @@ Commit.id commit) |>
+    (String.split_on_char '/') |>
+    List.rev |>
+    List.hd |>
+    Str.global_replace git_ext_re ""
