@@ -8,15 +8,6 @@ module Docker = Current_docker.Default
 
 let opam_repository_commits = Conf.opam_repository_commits
 
-module Repo_clone = struct
-  type t = string * Git.Commit.t
-  let compare = compare
-  let pp f (repo, r) = Fmt.pf f "%s\n%a" repo Git.Commit.pp_short r
-end
-
-let current_tagged a b =
-  Current.pair (Current.return a) b
-
 let platforms =
   let schedule = monthly in
   let v { Conf.label; builder; pool; distro; ocaml_version; arch } =
@@ -136,9 +127,17 @@ let local_test_multiple ~solver repos () =
   ) |> Current.all
 
 let clone_fixed_repos () =
-  Conf.fixed_repos
-  |> List.map (fun repo_url -> current_tagged repo_url (Git.clone ~schedule:daily repo_url))
-  |> Current.list_seq
+  let repos_by_owner =
+    Conf.fixed_repos |> index_by_owner |> Owner_map.bindings in
+  repos_by_owner |> List.split |> fst |> set_active_owners;
+  repos_by_owner |> List.map (fun (owner, repo_names_urls) ->
+    let (repo_names, repo_urls) = repo_names_urls |> List.split in
+    set_active_repo_names ~owner repo_names;
+    repo_urls |> List.map (fun repo_url ->
+      let (url, gref) = Repo_url_utils.url_gref_from_url repo_url in
+      (url, (Git.clone ~schedule:daily ~gref url))
+    )
+  ) |> List.flatten
 
 let analyse ~solver commit =
   Analyse.examine ~solver ~platforms ~opam_repository_commits commit
@@ -170,12 +169,11 @@ let build_installation ?ocluster ~solver installation =
   refs |> Current.list_iter (module Github.Api.Commit) @@ (fetch_analyse_build_summarise ?ocluster ~solver ~repo:(Current.map (Fmt.to_to_string Github.Api.Repo.pp) repo))
 
 let build_from_clone ?ocluster ~solver repo_clone =
-  let repo_url = Current.map fst repo_clone in
-  let commit = Current.map snd repo_clone in
+  let (repo_url, commit) = repo_clone in
+  let repo_id = Repo_url_utils.repo_id_from_url repo_url in
   let hash = Current.map Git.Commit.hash commit in
-  let repo_id = Current.map Repo_url_utils.repo_id_from_url repo_url in
-  let (builds, summary) = analyse_build_summarise ?ocluster ~solver ~repo:repo_url commit in
-  record_builds ~repo:repo_id ~hash ~builds ~summary
+  let (builds, summary) = analyse_build_summarise ?ocluster ~solver ~repo:(Current.return repo_url) commit in
+  record_builds ~repo:(Current.return repo_id) ~hash ~builds ~summary
 
 let v ?ocluster ~app ~solver () =
   let ocluster = Option.map (Cluster_build.config ~timeout:(Duration.of_hour 1)) ocluster in
@@ -190,14 +188,11 @@ let v ?ocluster ~app ~solver () =
       (module Github.Installation) @@ (build_installation ?ocluster ~solver)
   in
   let build_fixed =
-    clone_fixed_repos () |> Current.list_iter (module Repo_clone) (build_from_clone ?ocluster ~solver)
+    clone_fixed_repos () |> List.map (build_from_clone ?ocluster ~solver)
   in
-  Current.all [
-    build_installations;
-    build_fixed;
-  ]
+  Current.all (build_installations :: build_fixed)
 
 let local_test_fixed ~solver (): unit Current.t =
   Current.with_context opam_repository_commits @@ fun () ->
   Current.with_context platforms @@ fun () ->
-  clone_fixed_repos () |> Current.list_iter (module Repo_clone) (build_from_clone ~solver)
+  clone_fixed_repos () |> List.map (build_from_clone ~solver) |> Current.all
