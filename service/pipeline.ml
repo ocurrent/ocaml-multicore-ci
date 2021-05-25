@@ -59,10 +59,9 @@ let selection_to_opam_spec ~analysis selection =
   Spec.opam ~label ~selection ~analysis build_mechanism
 
 let package_and_selection_to_opam_spec ~analysis ~package selection =
-  Format.printf "package_and_selection_to_opam_spec %s" package;
-  let variant_label = Variant.to_string selection.Selection.variant in
-  let label = Format.sprintf "%s-%s" package variant_label in
-  Spec.opam ~label ~selection ~analysis (Conf.build_mechanism_for_package package)
+  let label = Variant.to_string selection.Selection.variant in
+  let build_mechanism = Conf.build_mechanism_for_package package in
+  Spec.opam ~label ~selection ~analysis build_mechanism
 
 let make_opam_specs analysis =
   match Analyse.Analysis.selections analysis with
