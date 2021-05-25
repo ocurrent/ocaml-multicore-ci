@@ -181,9 +181,13 @@ let v ?ocluster ~app ~solver () =
   let ocluster = Option.map (Cluster_build.config ~timeout:(Duration.of_hour 1)) ocluster in
   Current.with_context opam_repository_commits @@ fun () ->
   Current.with_context platforms @@ fun () ->
-  let installations = Github.App.installations app |> set_active_installations in
-  let build_installations =
-    installations |> Current.list_iter ~collapse_key:"org" (module Github.Installation) @@ (build_installation ?ocluster ~solver)
+  let build_installations = match app with
+  | None -> Current.return ()
+  | Some app ->
+    let installations = Github.App.installations app |> set_active_installations in
+    installations |> Current.list_iter
+      ~label:"GitHub installations" ~collapse_key:"org"
+      (module Github.Installation) @@ (build_installation ?ocluster ~solver)
   in
   let build_fixed =
     clone_fixed_repos () |> Current.list_iter (module Repo_clone) (build_from_clone ?ocluster ~solver)

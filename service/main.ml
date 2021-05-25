@@ -126,10 +126,29 @@ let submission_service =
     ~docv:"FILE"
     ["submission-service"]
 
-let cmd =
+let github_app_id =
+  Arg.required @@
+  Arg.opt Arg.(some string) None @@
+  Arg.info ["github-app-id"]
+
+let cmd ~with_github =
   let doc = "Build OCaml projects on GitHub" in
-  Term.(term_result (const main $ Current.Config.cmdliner $ Current_web.cmdliner $
-                     Current_github.App.cmdliner $ capnp_address $ Current_github.Auth.cmdliner $ submission_service)),
+  Term.(
+    let gh_cmd = if with_github then
+      const (fun x -> Some x) $ Current_github.App.cmdliner
+    else
+      const None
+    in
+    term_result (
+      const main $ Current.Config.cmdliner $ Current_web.cmdliner $
+      gh_cmd $
+      capnp_address $ Current_github.Auth.cmdliner $ submission_service)),
   Term.info "ocaml-multicore-ci" ~doc
 
-let () = Term.(exit @@ eval cmd)
+let () = Term.(
+  let with_github = match eval_peek_opts github_app_id with
+  | (None, _) -> false
+  | (Some _, _) -> true
+  in
+  eval (cmd ~with_github) |> exit
+)

@@ -9,7 +9,7 @@ val local_test_fixed : solver:Ocaml_multicore_ci_api.Solver.t -> unit -> unit Cu
 
 val v :
   ?ocluster:Cluster_api.Raw.Client.Submission.t Capnp_rpc_lwt.Sturdy_ref.t ->
-  app:Current_github.App.t ->
+  app:Current_github.App.t option ->
   solver:Ocaml_multicore_ci_api.Solver.t ->
   unit -> unit Current.t
 (** The main ocaml-multicore-ci pipeline. Tests everything configured for GitHub application [app]. *)
