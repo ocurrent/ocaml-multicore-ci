@@ -152,9 +152,9 @@ let analyse_build_summarise ?ocluster ~solver ~repo ?label commit =
   let builds = build_with_docker ?ocluster ~repo ?label ~analysis commit in
   (builds, summarise_builds builds)
 
-let fetch_analyse_build_summarise ?ocluster ~solver ~repo head =
+let fetch_analyse_build_summarise ?ocluster ~solver ~repo ?label head =
   let src = Git.fetch (Current.map Github.Api.Commit.id head) in
-  let (builds, summary) = analyse_build_summarise ?ocluster ~solver ~repo src in
+  let (builds, summary) = analyse_build_summarise ?ocluster ~solver ~repo ?label src in
   let index = record_builds_github ~commit:head ~builds ~summary in
   Current.all [
     index;
