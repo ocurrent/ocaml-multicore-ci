@@ -33,9 +33,16 @@ let repo_id_from_url url =
   let (owner, name) = owner_name_from_url url in
   { Current_github.Repo_id.owner; name }
 
-let package_name_from_commit commit =
-  Current_git.(Commit_id.repo @@ Commit.id commit) |>
+let package_name_from_url url =
+  url |>
     (String.split_on_char '/') |>
     List.rev |>
     List.hd |>
     Str.global_replace git_ext_re ""
+
+let package_name_from_commit commit =
+  let open Current_git in
+  commit |>
+    Commit.id |>
+    Commit_id.repo |>
+    package_name_from_url
