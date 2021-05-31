@@ -162,12 +162,6 @@ let fetch_analyse_build_summarise ?ocluster ~solver ~repo head =
       summary
   ]
 
-let build_installation ?ocluster ~solver installation =
-  let repos = Github.Installation.repositories installation |> set_active_repos ~installation in
-  repos |> Current.list_iter ~collapse_key:"repo" (module Github.Api.Repo) @@ fun repo ->
-  let refs = Github.Api.Repo.ci_refs ~staleness:Conf.max_staleness repo |> set_active_refs ~repo in
-  refs |> Current.list_iter (module Github.Api.Commit) @@ (fetch_analyse_build_summarise ?ocluster ~solver ~repo:(Current.map (Fmt.to_to_string Github.Api.Repo.pp) repo))
-
 let build_from_clone ?ocluster ~solver repo_clone =
   let (repo_url, commit) = repo_clone in
   let commit = Build_from_clone_component.v ~repo_url commit in
@@ -176,6 +170,12 @@ let build_from_clone ?ocluster ~solver repo_clone =
   let label = Repo_url_utils.owner_slash_name_from_url repo_url in
   let (builds, summary) = analyse_build_summarise ?ocluster ~solver ~label ~repo:(Current.return repo_url) commit in
   record_builds ~repo:(Current.return repo_id) ~hash ~builds ~summary
+
+let build_installation ?ocluster ~solver installation =
+  let repos = Github.Installation.repositories installation |> set_active_repos ~installation in
+  repos |> Current.list_iter ~collapse_key:"repo" (module Github.Api.Repo) @@ fun repo ->
+  let refs = Github.Api.Repo.ci_refs ~staleness:Conf.max_staleness repo |> set_active_refs ~repo in
+  refs |> Current.list_iter (module Github.Api.Commit) @@ (fetch_analyse_build_summarise ?ocluster ~solver ~repo:(Current.map (Fmt.to_to_string Github.Api.Repo.pp) repo))
 
 let v ?ocluster ~app ~solver () =
   let ocluster = Option.map (Cluster_build.config ~timeout:(Duration.of_hour 1)) ocluster in
