@@ -113,7 +113,7 @@ let local_test ?label ~solver repo () =
   let src = Git.Local.head_commit repo in
   let repo = Current.return { Github.Repo_id.owner = "local"; name = "test" } in
   let repo_str = Current.map (Fmt.to_to_string Current_github.Repo_id.pp) repo in
-  let analysis = Analyse.examine ?label ~solver ~platforms ~opam_repository_commits src in
+  let analysis = analysis_component ?label ~solver src in
   Current.component "summarise" |>
   let> results = build_with_docker ~repo:repo_str ?label ~analysis src in
   let result =
