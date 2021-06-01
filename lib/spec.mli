@@ -24,3 +24,7 @@ val compare : t -> t -> int
 val label : t -> string
 
 val pp_summary : ty Fmt.t
+
+val digest_of_ty : variant:Variant.t -> ty -> string
+
+val success_result : t -> [> `Built | `Checked ]

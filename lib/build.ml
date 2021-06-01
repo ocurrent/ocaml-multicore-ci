@@ -157,14 +157,6 @@ let v ~platforms ~repo ~spec source =
   and+ job_id = get_job_id build
   and+ spec = spec in
   let result =
-    state |> Result.map @@ fun () ->
-    match spec.ty with
-    | `Opam_monorepo _
-    | `Opam (`Build, _, _)
-    | `Opam (`Make _, _, _)
-    | `Opam (`Script _, _, _) -> `Built
-
-    | `Opam (`Lint (`Doc|`Opam), _, _)
-    | `Opam_fmt _ -> `Checked
+    state |> Result.map (fun () -> Spec.success_result spec)
   in
   result, job_id

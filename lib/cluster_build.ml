@@ -58,23 +58,12 @@ module Op = struct
 
   module Outcome = Current.Unit
 
-  let hash_packages packages =
-    Digest.string (String.concat "," packages) |> Digest.to_hex
-
   let get_cache_hint repo { Value.base; variant; ty } =
-    let deps =
-      match ty with
-      | `Opam (`Build, selection, _) -> hash_packages selection.packages
-      | `Opam (`Lint (`Doc|`Opam), selection, _) -> hash_packages selection.packages
-      | `Opam (`Make targets, selection, _) -> hash_packages (selection.packages @ targets)
-      | `Opam (`Script cmds, selection, _) -> hash_packages (selection.packages @ cmds)
-      | `Opam_fmt _ -> "ocamlformat"
-      | `Opam_monorepo _ -> "opam-monorepo-" ^ (Variant.to_string variant)
-    in
     Fmt.strf "%s-%s-%a-%s"
       repo
       (Image.hash base)
-      Variant.pp variant deps
+      Variant.pp variant
+      (Spec.digest_of_ty ~variant ty)
 
   let run t job { Key.pool; commit; label = _; repo } spec =
     let { Value.base; variant; ty } = spec in
@@ -147,14 +136,6 @@ let v t ~platforms ~repo ~spec source =
   and+ job_id = get_job_id build
   and+ spec = spec in
   let result =
-    state |> Result.map @@ fun () ->
-    match spec.ty with
-    | `Opam_monorepo _
-    | `Opam (`Build, _, _)
-    | `Opam (`Make _, _, _)
-    | `Opam (`Script _, _, _) -> `Built
-
-    | `Opam (`Lint (`Doc|`Opam), _, _)
-    | `Opam_fmt _ -> `Checked
+    state |> Result.map (fun () -> Spec.success_result spec)
   in
   result, job_id
