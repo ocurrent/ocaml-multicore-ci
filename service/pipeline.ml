@@ -129,7 +129,7 @@ let local_test_multiple ~solver repos () =
     local_test ~label ~solver repo ()
   ) |> Current.all
 
-let clone_fixed_repos () =
+let clone_fixed_repos (): (string * Git.Commit.t Current.t) list =
   let repos_by_owner =
     Conf.fixed_repos |> index_by_owner |> Owner_map.bindings in
   repos_by_owner |> List.split |> fst |> set_active_owners;
