@@ -7,6 +7,9 @@ module Worker = Ocaml_multicore_ci_api.Worker
 
 let pool = Current.Pool.create ~label:"analyse" 2
 
+let pp_platforms fmt platforms =
+  Fmt.pf fmt "%a" Fmt.(list ~sep:(unit ", ") Variant.pp) (List.map fst platforms)
+
 let is_empty_file x =
   match Unix.lstat x with
   | Unix.{ st_kind = S_REG; st_size = 0; _ } -> true
@@ -129,6 +132,7 @@ module Analysis = struct
       )
 
   let opam_selections ~solve ~job ~platforms ~opam_files dir =
+    Current.Job.log job "Solving: @[platforms=%a@,opam_files=%a@]" pp_platforms platforms Fmt.(list ~sep:(unit ", ") string) opam_files;
     let src = Fpath.to_string dir in
     let ( / ) = Filename.concat in
     begin
@@ -183,6 +187,11 @@ module Analysis = struct
     | Error (`Msg msg) -> Fmt.error_msg "Error from solver: %s" msg
 
   let of_dir ~solver ~job ~platforms ~opam_repository_commits ~package_name dir =
+    Current.Job.log job
+      "Analysing %s: @[platforms=%a@,opam_repository_commits=%a@]"
+        package_name
+        pp_platforms platforms
+        (Fmt.list Git.Commit_id.pp) opam_repository_commits;
     let solve = solve ~opam_repository_commits ~job ~solver in
     let ty = type_of_dir dir in
     let cmd = "", [| "find"; "."; "-maxdepth"; "3"; "-name"; "*.opam" |] in
