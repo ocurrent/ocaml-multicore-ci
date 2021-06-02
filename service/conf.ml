@@ -126,6 +126,8 @@ let fixed_repos = [
   "https://github.com/janestreet/core";
   "https://github.com/janestreet/core_kernel";
   "https://github.com/ocaml-batteries-team/batteries-included";
+  "https://github.com/ocaml-multicore/ocaml-multicore@4.12+domains";
+  "https://github.com/ocaml-multicore/ocaml-multicore@4.12+domains+effects";
   "https://github.com/ocsigen/lwt";
 ]
 
@@ -134,4 +136,10 @@ let build_mechanism_for_package package =
   | "batteries" -> `Make ["all"; "test"]
   | "CompCert" -> `Script ["sudo apt-get install -y libgmp-dev"; "opam install coq menhir"; "./configure x86_64-linux"; "make"; "make test"]
   | "coq" -> `Script ["opam install menhir"; "./configure -no-ask"; "make"; "make check"]
+  | "ocaml-multicore" -> `Script []
   | _ -> `Build
+
+let is_compiler_package package =
+  match package with
+  | "ocaml-multicore" -> true
+  | _ -> false

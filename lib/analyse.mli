@@ -16,6 +16,7 @@ module Analysis : sig
     platforms:(Variant.t * Ocaml_multicore_ci_api.Worker.Vars.t) list ->
     opam_repository_commits:Current_git.Commit_id.t list ->
     package_name:string ->
+    ?is_compiler:bool ->
     Fpath.t ->
     (t, [ `Msg of string ]) result Lwt.t
 end
@@ -25,6 +26,7 @@ val examine :
   solver:Ocaml_multicore_ci_api.Solver.t ->
   platforms:Platform.t list Current.t ->
   opam_repository_commits:Current_git.Commit_id.t list Current.t ->
+  is_compiler:bool ->
   Current_git.Commit.t Current.t ->
   Analysis.t Current.t
 (** [examine ~solver ~platforms ~opam_repository_commit src] analyses the source code [src] and selects

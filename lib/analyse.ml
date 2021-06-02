@@ -186,12 +186,14 @@ module Analysis = struct
     | Ok x -> Ok (List.map Selection.of_worker x)
     | Error (`Msg msg) -> Fmt.error_msg "Error from solver: %s" msg
 
-  let of_dir ~solver ~job ~platforms ~opam_repository_commits ~package_name dir =
+  let of_dir ~solver ~job ~platforms ~opam_repository_commits ~package_name ?is_compiler dir =
+    let is_compiler = Option.value is_compiler ~default:false in
     Current.Job.log job
-      "Analysing %s: @[platforms=%a@,opam_repository_commits=%a@]"
+      "Analysing %s: @[platforms=%a@,opam_repository_commits=%a@,is_compiler=%a@]"
         package_name
         pp_platforms platforms
-        (Fmt.list Git.Commit_id.pp) opam_repository_commits;
+        (Fmt.list Git.Commit_id.pp) opam_repository_commits
+        Fmt.bool is_compiler;
     let solve = solve ~opam_repository_commits ~job ~solver in
     let ty = type_of_dir dir in
     let cmd = "", [| "find"; "."; "-maxdepth"; "3"; "-name"; "*.opam" |] in
@@ -225,7 +227,7 @@ module Analysis = struct
         )
     in
     Analyse_ocamlformat.get_ocamlformat_source job ~opam_files ~root:dir >>!= fun ocamlformat_source ->
-    if opam_files = [] then Lwt_result.return (
+    if is_compiler || opam_files = [] then Lwt_result.return (
       dummy_analysis ~platforms ~opam_repository_commits ~package_name
     )
     else if List.filter is_toplevel opam_files = [] then Lwt_result.fail (`Msg "No top-level opam files found!")
@@ -268,14 +270,17 @@ module Examine = struct
     type t = {
       opam_repository_commits : Current_git.Commit_id.t list;
       platforms : (Variant.t * Worker.Vars.t) list;
+      is_compiler : bool;
     }
 
-    let digest { opam_repository_commits; platforms } =
+    let digest { opam_repository_commits; platforms; is_compiler } =
       let json = `Assoc [
           "opam-repositories",
             commit_ids_to_yojson opam_repository_commits;
           "platforms",
             platforms_to_yojson platforms;
+          "is_compiler",
+            `Bool is_compiler;
         ]
       in
       Yojson.Safe.to_string json
@@ -285,11 +290,11 @@ module Examine = struct
 
   let id = "ci-analyse"
 
-  let run solver job src { Value.opam_repository_commits; platforms } =
+  let run solver job src { Value.opam_repository_commits; platforms; is_compiler } =
     let package_name = package_name_from_commit src in
     Current.Job.start job ~pool ~level:Current.Level.Harmless >>= fun () ->
     Current_git.with_checkout ~job src @@ fun src ->
-    Analysis.of_dir ~solver ~platforms ~opam_repository_commits ~job ~package_name src
+    Analysis.of_dir ~solver ~platforms ~opam_repository_commits ~job ~package_name ~is_compiler src
 
   let pp f _ = Fmt.string f "Analyse"
 
@@ -302,10 +307,29 @@ module Examine_cache = Current_cache.Generic(Examine)
 let remap_platforms platforms =
   platforms |> List.map (fun { Platform.variant; vars; _ } -> (variant, vars))
 
-let examine ?label ~solver ~platforms ~opam_repository_commits src =
+let platforms_without_variants platforms =
+  platforms |> List.filter (fun platform ->
+    let ov = Variant.ocaml_version platform.Platform.variant in
+    Ocaml_version.extra ov = None
+  )
+
+let platforms_for_package ~is_compiler platforms =
+  if is_compiler then
+    platforms_without_variants platforms
+  else
+    platforms
+
+let opam_repos_for_package ~is_compiler opam_repository_commits =
+  if is_compiler then
+    [List.hd opam_repository_commits]
+  else
+    opam_repository_commits
+
+let examine ?label ~solver ~platforms ~opam_repository_commits ~is_compiler src =
   Current.component "Analyse@ %a" Fmt.(option string) label |>
   let> src = src
   and> opam_repository_commits = opam_repository_commits
   and> platforms = platforms in
-  let platforms = remap_platforms platforms in
-  Examine_cache.run solver src { Examine.Value.opam_repository_commits; platforms }
+  let platforms = platforms_for_package ~is_compiler platforms |> remap_platforms in
+  let opam_repository_commits = opam_repos_for_package ~is_compiler opam_repository_commits in
+  Examine_cache.run solver src { Examine.Value.opam_repository_commits; platforms; is_compiler }

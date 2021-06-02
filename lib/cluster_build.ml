@@ -24,14 +24,16 @@ module Op = struct
     type t = {
       pool : string;                            (* The build pool to use (e.g. "linux-arm64") *)
       commit : Current_git.Commit_id.t;         (* The source code to build and test *)
+      compiler_commit : Current_git.Commit_id.t option;  (* The source code to build and test *)
       repo : string;                            (* Used to choose a build cache *)
       label : string;                           (* A unique ID for this build within the commit *)
     }
 
-    let to_json { pool; commit; label; repo } =
+    let to_json { pool; commit; compiler_commit; label; repo } =
       `Assoc [
         "pool", `String pool;
         "commit", `String (Current_git.Commit_id.hash commit);
+        "compiler_commit", (match compiler_commit with None -> `Null | Some compiler_commit -> `String (Current_git.Commit_id.hash compiler_commit));
         "repo", `String repo;
         "label", `String label;
       ]
@@ -65,9 +67,9 @@ module Op = struct
       Variant.pp variant
       (Spec.digest_of_ty ~variant ty)
 
-  let run t job { Key.pool; commit; label = _; repo } spec =
+  let run t job { Key.pool; commit; compiler_commit; label = _; repo } spec =
     let { Value.base; variant; ty } = spec in
-    let build_spec = Build.make_build_spec ~base ~repo ~variant ~ty
+    let build_spec = Build.make_build_spec ~base ~compiler_commit ~repo ~variant ~ty
     in
     Current.Job.write job
       (Fmt.strf "@[<v>Base: %a@,%a@]@."
@@ -94,10 +96,11 @@ module Op = struct
     Capability.with_ref build_job (Current_ocluster.Connection.run_job ~job) >>!= fun (_ : string) ->
     Lwt_result.return ()
 
-  let pp f ({ Key.pool; repo; commit; label }, _) =
-    Fmt.pf f "test %s %a (%s:%s)"
+  let pp f ({ Key.pool; repo; commit; compiler_commit; label }, _) =
+    Fmt.pf f "test %s %a %a (%s:%s)"
       repo
       Current_git.Commit_id.pp commit
+      (Fmt.option Current_git.Commit_id.pp) compiler_commit
       pool label
 
   let auto_cancel = true
@@ -110,15 +113,16 @@ let config ?timeout sr =
   let connection = Current_ocluster.Connection.create sr in
   { connection; timeout }
 
-let build t ~platforms ~spec ~repo commit =
+let build t ~platforms ~spec ~repo ?compiler_commit commit =
   Current.component "cluster build" |>
   let> { Spec.variant; ty; label } = spec
   and> commit = commit
+  and> compiler_commit = Current.option_seq compiler_commit
   and> platforms = platforms
   and> repo = repo in
   match List.find_opt (fun p -> Variant.equal p.Platform.variant variant) platforms with
   | Some { Platform.builder = _; pool; variant; base; _ } ->
-    BC.run t { Op.Key.pool; commit; repo; label } { Op.Value.base; ty; variant }
+    BC.run t { Op.Key.pool; commit; compiler_commit; repo; label } { Op.Value.base; ty; variant }
   | None ->
     (* We can only get here if there is a bug. If the set of platforms changes, [Analyse] should recalculate. *)
     let msg = Fmt.strf "BUG: variant %a is not a supported platform" Variant.pp variant in
@@ -130,8 +134,8 @@ let get_job_id x =
   | Some { Current.Metadata.job_id; _ } -> job_id
   | None -> None
 
-let v t ~platforms ~repo ~spec source =
-  let build = build t ~platforms ~spec ~repo source in
+let v t ~platforms ~repo ?compiler_commit ~spec source =
+  let build = build t ~platforms ~spec ~repo ?compiler_commit source in
   let+ state = Current.state ~hidden:true build
   and+ job_id = get_job_id build
   and+ spec = spec in

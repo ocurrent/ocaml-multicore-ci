@@ -8,12 +8,14 @@ val install_project_deps :
 val spec_dune :
   base:string ->
   opam_files:string list ->
+  compiler_commit:Current_git.Commit_id.t option ->
   selection:Selection.t ->
   Obuilder_spec.t
 
 val spec_make :
   base:string ->
   opam_files:string list ->
+  compiler_commit:Current_git.Commit_id.t option ->
   selection:Selection.t ->
   targets:string list ->
   Obuilder_spec.t
@@ -21,6 +23,7 @@ val spec_make :
 val spec_script :
   base:string ->
   opam_files:string list ->
+  compiler_commit:Current_git.Commit_id.t option ->
   selection:Selection.t ->
   cmds:string list ->
   Obuilder_spec.t

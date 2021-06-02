@@ -8,6 +8,10 @@ module Docker = Current_docker.Default
 
 let opam_repository_commits = Conf.opam_repository_commits
 
+let is_compiler_from_repo_url repo_url =
+  let package_name = Repo_url_utils.package_name_from_url repo_url in
+  Conf.is_compiler_package package_name
+
 let platforms =
   let schedule = monthly in
   let v { Conf.label; builder; pool; distro; ocaml_version; arch } =
@@ -77,18 +81,19 @@ let make_opam_specs analysis =
     in
     lint @ builds
 
-let place_build ~ocluster ~repo ~source spec =
+let place_build ~ocluster ~repo ?compiler_commit ~source spec =
   let+ result =
     match ocluster with
     | None ->
-      Build.v ~platforms ~repo ~spec source
+      Build.v ~platforms ~repo ?compiler_commit ~spec source
     | Some ocluster ->
       let src = Current.map Git.Commit.id source in
-      Cluster_build.v ocluster ~platforms ~repo ~spec src
+      let compiler_commit_id = Option.map (fun c -> Current.map Git.Commit.id c) compiler_commit in
+      Cluster_build.v ocluster ~platforms ~repo ?compiler_commit:compiler_commit_id ~spec src
   and+ spec = spec in
   Spec.label spec, result
 
-let build_with_docker ?ocluster ~repo ?label ~analysis source =
+let build_with_docker ?ocluster ~repo ?compiler_commit ?label ~analysis source =
   Current.with_context analysis @@ fun () ->
   let specs =
     let+ analysis = Current.state ~hidden:true analysis in
@@ -99,21 +104,21 @@ let build_with_docker ?ocluster ~repo ?label ~analysis source =
     | Ok analysis ->
       make_opam_specs analysis
   in
-  let+ builds = specs |> Current.list_map ?label (module Spec) (place_build ~ocluster ~repo ~source)
+  let+ builds = specs |> Current.list_map ?label (module Spec) (place_build ~ocluster ~repo ?compiler_commit ~source)
   and+ analysis_result = Current.state ~hidden:true (Current.map (fun _ -> `Checked) analysis)
   and+ analysis_id = get_job_id analysis in
   builds @ [
     "(analysis)", (analysis_result, analysis_id);
   ]
 
-let analysis_component ?label ~solver commit =
-  Analyse.examine ?label ~solver ~platforms ~opam_repository_commits commit
+let analysis_component ?label ~solver ~is_compiler commit =
+  Analyse.examine ?label ~solver ~platforms ~opam_repository_commits ~is_compiler commit
 
 let local_test ?label ~solver repo () =
   let src = Git.Local.head_commit repo in
   let repo = Current.return { Github.Repo_id.owner = "local"; name = "test" } in
   let repo_str = Current.map (Fmt.to_to_string Current_github.Repo_id.pp) repo in
-  let analysis = analysis_component ?label ~solver src in
+  let analysis = analysis_component ?label ~solver ~is_compiler:false src in
   Current.component "summarise" |>
   let> results = build_with_docker ~repo:repo_str ?label ~analysis src in
   let result =
@@ -147,14 +152,14 @@ let summarise_builds builds =
   |> Current.map (List.map (fun (variant, (build, _job)) -> variant, build))
   |> Current.map summarise
 
-let analyse_build_summarise ?ocluster ~solver ~repo ?label commit =
-  let analysis = analysis_component ~solver ?label commit in
-  let builds = build_with_docker ?ocluster ~repo ?label ~analysis commit in
+let analyse_build_summarise ?ocluster ~solver ~repo ~is_compiler ?compiler_commit ?label commit =
+  let analysis = analysis_component ~solver ?label ~is_compiler commit in
+  let builds = build_with_docker ?ocluster ~repo ?compiler_commit ?label ~analysis commit in
   (builds, summarise_builds builds)
 
 let fetch_analyse_build_summarise ?ocluster ~solver ~repo ?label head =
   let src = Git.fetch (Current.map Github.Api.Commit.id head) in
-  let (builds, summary) = analyse_build_summarise ?ocluster ~solver ~repo ?label src in
+  let (builds, summary) = analyse_build_summarise ?ocluster ~solver ~repo ~is_compiler:false ?label src in
   let index = record_builds_github ~commit:head ~builds ~summary in
   Current.all [
     index;
@@ -162,14 +167,39 @@ let fetch_analyse_build_summarise ?ocluster ~solver ~repo ?label head =
       summary
   ]
 
-let build_from_clone ?ocluster ~solver repo_clone =
+let build_from_clone_with_compiler ?ocluster ~solver ?compiler_commit ?compiler_build repo_clone =
   let (repo_url, commit) = repo_clone in
-  let commit = Build_from_clone_component.v ~repo_url commit in
+  let commit = Build_from_clone_component.v ~repo_url ?compiler_commit ?dependency:compiler_build commit in
   let repo_id = Repo_url_utils.repo_id_from_url repo_url in
   let hash = Current.map Git.Commit.hash commit in
   let label = Repo_url_utils.owner_slash_name_from_url repo_url in
-  let (builds, summary) = analyse_build_summarise ?ocluster ~solver ~label ~repo:(Current.return repo_url) commit in
+  let is_compiler = is_compiler_from_repo_url repo_url in
+  let (builds, summary) = analyse_build_summarise ?ocluster ~solver ~is_compiler ?compiler_commit ~label ~repo:(Current.return repo_url) commit in
   record_builds ~repo:(Current.return repo_id) ~hash ~builds ~summary
+
+let build_from_clone ?ocluster ~solver (repo_clone: (string * Git.Commit.t Current.t)) =
+  let (repo_url, commit) = repo_clone in
+  if is_compiler_from_repo_url repo_url
+  then
+    let compiler_build =
+      build_from_clone_with_compiler ?ocluster ~solver
+        ~compiler_commit:commit repo_clone
+    in
+    let downstream_builds = clone_fixed_repos () |>
+      List.filter_map (fun child_repo_clone ->
+        let (child_repo_url, _) = child_repo_clone in
+        if is_compiler_from_repo_url child_repo_url then
+          None
+        else
+          Some (
+            build_from_clone_with_compiler ?ocluster ~solver
+              ~compiler_commit:commit ~compiler_build child_repo_clone
+            )
+      )
+    in
+    Current.all (compiler_build :: downstream_builds)
+  else
+    build_from_clone_with_compiler ?ocluster ~solver repo_clone
 
 let build_installation ?ocluster ~solver installation =
   let repos = Github.Installation.repositories installation |> set_active_repos ~installation in
