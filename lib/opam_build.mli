@@ -1,4 +1,4 @@
-val download_cache : string
+val opam_download_cache : Obuilder_spec.Cache.t list
 
 val install_project_deps :
   opam_files:string list ->

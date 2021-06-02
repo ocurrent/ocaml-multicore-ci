@@ -1,6 +1,6 @@
 let install_ocamlformat =
   let open Obuilder_spec in
-  let cache = [ Obuilder_spec.Cache.v Opam_build.download_cache ~target:"/home/opam/.opam/download-cache" ] in
+  let cache = Opam_build.opam_download_cache in
   let network = ["host"] in
   function
   | Analyse_ocamlformat.Vendored { path } ->
@@ -17,7 +17,7 @@ let install_ocamlformat =
 
 let fmt_spec ~base ~ocamlformat_source =
   let open Obuilder_spec in
-  let cache = [ Obuilder_spec.Cache.v Opam_build.download_cache ~target:"/home/opam/.opam/download-cache" ] in
+  let cache = Opam_build.opam_download_cache in
   let network = ["host"] in
   stage ~from:base @@ [
     user ~uid:1000 ~gid:1000;
@@ -32,7 +32,7 @@ let fmt_spec ~base ~ocamlformat_source =
   ]
 
 let doc_spec ~base ~opam_files ~selection =
-  let cache = [ Obuilder_spec.Cache.v Opam_build.download_cache ~target:"/home/opam/.opam/download-cache" ] in
+  let cache = Opam_build.opam_download_cache in
   let network = ["host"] in
   let open Obuilder_spec in
   stage ~from:base @@
@@ -57,7 +57,7 @@ let install_opam_dune_lint ~cache ~network ~base =
   ]
 
 let opam_lint_spec ~base ~opam_files ~selection =
-  let cache = [ Obuilder_spec.Cache.v Opam_build.download_cache ~target:"/home/opam/.opam/download-cache" ] in
+  let cache = Opam_build.opam_download_cache in
   let network = ["host"] in
   let open Obuilder_spec in
   stage

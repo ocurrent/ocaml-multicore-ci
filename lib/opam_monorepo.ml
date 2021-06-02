@@ -140,10 +140,6 @@ let spec ~base ~repo ~config ~variant =
   let { package; selection; lock_file_version } = config in
   let opam_file = package ^ ".opam" in
   let lock_file = package ^ ".opam.locked" in
-  let download_cache =
-    Obuilder_spec.Cache.v Opam_build.download_cache
-      ~target:"/home/opam/.opam/download-cache"
-  in
   let dune_cache = Dune_build_cache.for_repo repo in
   let network = [ "host" ] in
   let dune_project = "dune-project" in
@@ -156,10 +152,10 @@ let spec ~base ~repo ~config ~variant =
       run "sudo chown opam /src";
       copy [ dune_project; opam_file; lock_file ] ~dst:"/src/";
     ]
-  @ install_depexts ~network ~cache:[ download_cache ] ~package
+  @ install_depexts ~network ~cache:Opam_build.opam_download_cache ~package
       ~lock_file_version
   @ [
-      run ~network ~cache:[ download_cache ] "opam exec -- opam monorepo pull";
+      run ~network ~cache:Opam_build.opam_download_cache "opam exec -- opam monorepo pull";
       copy [ "." ] ~dst:"/src/";
       run ~cache:[ dune_cache ] "opam exec -- dune build @install";
       run ~cache:[ dune_cache ] "opam exec -- dune runtest";

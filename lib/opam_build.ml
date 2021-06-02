@@ -1,3 +1,6 @@
+let host_network = ["host"]
+let opam_download_cache = [ Obuilder_spec.Cache.v "opam-archives" ~target:"/home/opam/.opam/download-cache" ]
+
 (* If the package's directory name doesn't contain a dot then opam will default to
    using the last known version, which is usually wrong. In particular, if a multi-project
    repostory adds a new package with a constraint "{ =version }" on an existing one,
@@ -57,8 +60,6 @@ let rec get_root_opam_packages = function
   | (dir, _, pkgs) ::_ when Fpath.is_current_dir dir -> pkgs
   | _ :: rest -> get_root_opam_packages rest
 
-let download_cache = "opam-archives"
-
 let install_deps ~cache ~network ~non_root_pkgs ~root_pkgs =
   let open Obuilder_spec in
   let non_root_pkgs_str = String.concat " " non_root_pkgs in
@@ -81,15 +82,15 @@ let install_project_deps ~opam_files ~selection =
   let root_pkgs = get_root_opam_packages groups in
   let non_root_pkgs = packages |> List.filter (fun pkg -> not (List.mem pkg root_pkgs)) in
   let open Obuilder_spec in
-  let cache = [ Obuilder_spec.Cache.v download_cache ~target:"/home/opam/.opam/download-cache" ] in
-  let network = ["host"] in
+  let cache = opam_download_cache in
+  let network = host_network in
   let distro_extras =
     if Astring.String.is_prefix ~affix:"fedora" (Variant.id variant) then
       [run ~network "sudo dnf install -y findutils"] (* (we need xargs) *)
     else
       []
   in
-  let network = ["host"] in
+  let network = host_network in
   (if Variant.arch variant |> Ocaml_version.arch_is_32bit then
      [shell ["/usr/bin/linux32"; "/bin/sh"; "-c"]] else [])
   @ distro_extras @ [
