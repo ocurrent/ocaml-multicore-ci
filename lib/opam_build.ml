@@ -2,7 +2,10 @@ let host_network = ["host"]
 let opam_download_cache = [ Obuilder_spec.Cache.v "opam-archives" ~target:"/home/opam/.opam/download-cache" ]
 
 let compiler_switch_name_from_commit commit =
-  Current_git.Commit_id.hash commit |> Astring.String.with_range ~len:8
+  let s_hash =
+    Current_git.Commit_id.hash commit |> Astring.String.with_range ~len:8
+  in
+  "compiler-" ^ s_hash
 
 (* If the package's directory name doesn't contain a dot then opam will default to
    using the last known version, which is usually wrong. In particular, if a multi-project
