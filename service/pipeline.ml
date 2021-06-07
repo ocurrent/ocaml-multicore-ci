@@ -147,11 +147,6 @@ let clone_fixed_repos (): (string * Git.Commit.t Current.t) list =
     )
   ) |> List.flatten
 
-let summarise_builds builds =
-  builds
-  |> Current.map (List.map (fun (variant, (build, _job)) -> variant, build))
-  |> Current.map summarise
-
 let analyse_build_summarise ?ocluster ~solver ~repo ~is_compiler ?compiler_commit ?label commit =
   let analysis = analysis_component ~solver ?label ~is_compiler commit in
   let builds = build_with_docker ?ocluster ~repo ?compiler_commit ?label ~analysis commit in
