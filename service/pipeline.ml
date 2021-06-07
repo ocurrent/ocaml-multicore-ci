@@ -114,6 +114,13 @@ let build_with_docker ?ocluster ~repo ?compiler_commit ?label ~analysis source =
 let analysis_component ?label ~solver ~is_compiler commit =
   Analyse.examine ?label ~solver ~platforms ~opam_repository_commits ~is_compiler commit
 
+let cascade_component ~build (commit: Git.Commit.t Current.t) =
+  Current.component "cascade" |>
+  let> commit = commit
+  and> _ = build
+  in
+  Current.Primitive.const commit
+
 let local_test ?label ~solver repo () =
   let src = Git.Local.head_commit repo in
   let repo = Current.return { Github.Repo_id.owner = "local"; name = "test" } in
@@ -162,23 +169,29 @@ let fetch_analyse_build_summarise ?ocluster ~solver ~repo ?label head =
       summary
   ]
 
-let build_from_clone_with_compiler ?ocluster ~solver ?compiler_commit ?compiler_build repo_clone =
+let build_from_clone_with_compiler ?ocluster ~solver ?compiler_commit repo_clone =
   let (repo_url, commit) = repo_clone in
-  let commit = Build_from_clone_component.v ~repo_url ?compiler_commit ?dependency:compiler_build commit in
+  let commit = Build_from_clone_component.v ~repo_url ?compiler_commit commit in
   let repo_id = Repo_url_utils.repo_id_from_url repo_url in
   let hash = Current.map Git.Commit.hash commit in
   let label = Repo_url_utils.owner_slash_name_from_url repo_url in
   let is_compiler = is_compiler_from_repo_url repo_url in
   let (builds, summary) = analyse_build_summarise ?ocluster ~solver ~is_compiler ?compiler_commit ~label ~repo:(Current.return repo_url) commit in
-  record_builds ~repo:(Current.return repo_id) ~hash ~builds ~summary
+  let recorded_builds = record_builds ~repo:(Current.return repo_id) ~hash ~builds ~summary
+  in
+  (commit, recorded_builds)
+
 
 let build_from_clone ?ocluster ~solver (repo_clone: (string * Git.Commit.t Current.t)) =
   let (repo_url, commit) = repo_clone in
   if is_compiler_from_repo_url repo_url
   then
-    let compiler_build =
+    let (compiler_commit, compiler_build) =
       build_from_clone_with_compiler ?ocluster ~solver
         ~compiler_commit:commit repo_clone
+    in
+    let compiler_commit =
+      cascade_component ~build:compiler_build compiler_commit
     in
     let downstream_builds = clone_fixed_repos () |>
       List.filter_map (fun child_repo_clone ->
@@ -187,14 +200,19 @@ let build_from_clone ?ocluster ~solver (repo_clone: (string * Git.Commit.t Curre
           None
         else
           Some (
-            build_from_clone_with_compiler ?ocluster ~solver
-              ~compiler_commit:commit ~compiler_build child_repo_clone
+              let (_, build) = build_from_clone_with_compiler ?ocluster ~solver
+                ~compiler_commit child_repo_clone
+              in
+              build
             )
       )
     in
-    Current.all (compiler_build :: downstream_builds)
+    Current.all downstream_builds
   else
-    build_from_clone_with_compiler ?ocluster ~solver repo_clone
+    let (_, build) =
+      build_from_clone_with_compiler ?ocluster ~solver repo_clone
+    in
+    Current.ignore_value build
 
 let build_installation ?ocluster ~solver installation =
   let repos = Github.Installation.repositories installation |> set_active_repos ~installation in

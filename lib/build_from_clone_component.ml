@@ -49,7 +49,7 @@ end
 
 module BC = Current_cache.Output(Op)
 
-let v ~repo_url ?compiler_commit ?dependency commit =
+let v ~repo_url ?compiler_commit commit =
   let label = Repo_url_utils.owner_slash_name_from_url repo_url in
   let cc = match compiler_commit with
   | None -> ""
@@ -58,6 +58,5 @@ let v ~repo_url ?compiler_commit ?dependency commit =
   Current.component "build@ %s@ %s" label cc |>
   let> commit = commit
   and> compiler_commit = Current.option_seq compiler_commit
-  and> _ = Current.option_seq dependency
   in
   BC.set No_context { repo_url; commit; compiler_commit } commit
