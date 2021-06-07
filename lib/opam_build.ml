@@ -151,7 +151,7 @@ let install_compiler = function
     comment "Create switch for compiler (%s)" switch_name;
     copy ["./compiler-src"] ~dst:"/compiler-src/";
     workdir "/compiler-src";
-    run "opam switch create %s --empty && opam pin add -k path --inplace-build ocaml-variants.4.12.0+multicore ." switch_name
+    run "opam switch create %s --empty && opam repository && opam pin add -k path --inplace-build ocaml-variants.4.12.0+multicore ." switch_name
   ]
 
 let spec_helper ~body ~base ~opam_files ~compiler_commit ~selection =
