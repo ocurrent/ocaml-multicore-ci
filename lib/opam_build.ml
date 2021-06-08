@@ -182,7 +182,10 @@ let spec_helper ~body ~base ~opam_files ~compiler_commit ~selection =
   )
 
 let spec_script ~base ~opam_files ~compiler_commit ~selection ~cmds =
-  let cmds = cmds |> List.map (fun cmd -> Obuilder_spec.run "opam exec -- %s" cmd) in
+  let network = host_network in
+  let cmds = cmds |> List.map (fun cmd ->
+    Obuilder_spec.run ~network "opam exec -- %s" cmd
+  ) in
   let body = Obuilder_spec.comment "Run build" :: cmds in
   spec_helper ~body ~base ~opam_files ~compiler_commit ~selection
 
