@@ -4,12 +4,6 @@ open Lwt.Infix
 module Raw = Current_docker.Raw
 module Selection = Ocaml_multicore_ci_api.Worker.Selection
 
-let ( >>!= ) = Lwt_result.bind
-
-let cp_r ~cancellable ~job ~src ~dst =
-  let cmd = [| "cp"; "-a"; "--"; Fpath.to_string src; Fpath.to_string dst |] in
-  Current.Process.exec ~cancellable ~job ("", cmd)
-
 let checkout_pool = Current.Pool.create ~label:"git-clone" 1
 
 (* Make sure we never build the same (commit, variant) twice at the same time, as this is likely
@@ -34,15 +28,17 @@ let rec with_commit_lock ~job commit variant fn =
          Lwt.return_unit
       )
 
-let maybe_with_checkout ?pool ~job commit fn =
-  match commit with
-  | None -> fn None
-  | Some commit -> Current_git.with_checkout ?pool ~job commit (fun dir -> fn (Some dir))
-
 let make_build_spec ~base ~repo ~compiler_commit ~variant ~ty =
     let base = Raw.Image.hash base in
     match ty with
-    | `Opam (`Build, selection, opam_files) -> Opam_build.spec_dune ~base ~opam_files ~compiler_commit ~selection
+    | `Opam (`Build, selection, opam_files) ->
+         begin
+           match compiler_commit with
+          | None ->
+            Opam_build.spec_dune ~base ~opam_files ~compiler_commit ~selection
+          | Some _ ->
+            Opam_build.spec_opam_install ~base ~opam_files ~compiler_commit ~selection
+        end
     | `Opam (`Lint `Doc, selection, opam_files) -> Lint.doc_spec ~base ~opam_files ~selection
     | `Opam (`Lint `Opam, selection, opam_files) -> Lint.opam_lint_spec ~base ~opam_files ~selection
     | `Opam (`Make targets, selection, opam_files) -> Opam_build.spec_make ~base ~opam_files ~compiler_commit ~selection ~targets
@@ -102,6 +98,10 @@ module Op = struct
   let run { Builder.docker_context; pool; build_timeout } job
       { Key.commit; compiler_commit; label = _; repo } { Value.base; variant; ty } =
     let compiler_commit_id = Option.map Current_git.Commit.id compiler_commit in
+    let build_context_commit = match compiler_commit with
+    | None -> commit
+    | Some cc -> cc
+    in
     let build_spec = make_build_spec ~base ~compiler_commit:compiler_commit_id ~repo ~variant ~ty
     in
     let make_dockerfile ~for_user =
@@ -120,16 +120,12 @@ module Op = struct
                  \o033[34m%s\o033[0m\
                  END-OF-DOCKERFILE@.\
                  docker build .@.@."
-         Current_git.Commit_id.pp_user_clone (Current_git.Commit.id commit)
+         Current_git.Commit_id.pp_user_clone (Current_git.Commit.id build_context_commit)
          (make_dockerfile ~for_user:true));
     let dockerfile = make_dockerfile ~for_user:false in
     Current.Job.start ~timeout:build_timeout ~pool job ~level:Current.Level.Average >>= fun () ->
-    with_commit_lock ~job commit variant @@ fun () ->
-    Current_git.with_checkout ~pool:checkout_pool ~job commit @@ fun dir ->
-    maybe_with_checkout ~pool:checkout_pool ~job compiler_commit @@ fun compiler_dir ->
-    (match compiler_dir with
-    | None -> Lwt.return (Ok ())
-    | Some compdir -> cp_r ~cancellable:true ~job ~src:compdir ~dst:Fpath.(dir / "compiler-src")) >>!= fun () ->
+    with_commit_lock ~job build_context_commit variant @@ fun () ->
+    Current_git.with_checkout ~pool:checkout_pool ~job build_context_commit @@ fun dir ->
     Current.Job.write job (Fmt.strf "Writing BuildKit Dockerfile:@.%s@." dockerfile);
     Bos.OS.File.write Fpath.(dir / "Dockerfile") (dockerfile ^ "\n") |> or_raise;
     Bos.OS.File.write Fpath.(dir / ".dockerignore") dockerignore |> or_raise;

@@ -114,6 +114,9 @@ let build_with_docker ?ocluster ~repo ?compiler_commit ?label ~analysis source =
 let analysis_component ?label ~solver ~is_compiler commit =
   Analyse.examine ?label ~solver ~platforms ~opam_repository_commits ~is_compiler commit
 
+let analysis_with_compiler_component ?label ~solver ~compiler_commit commit =
+  Analyse.examine_with_compiler ?label ~solver ~platforms ~opam_repository_commits ~compiler_commit commit
+
 let cascade_component ~build (commit: Git.Commit.t Current.t) =
   Current.component "cascade" |>
   let> commit = commit
@@ -181,6 +184,12 @@ let build_from_clone_with_compiler ?ocluster ~solver ?compiler_commit repo_clone
   in
   (commit, recorded_builds)
 
+let build_with_compiler ?ocluster ~solver ~compiler_commit ?label commit =
+  let cache_hint = Current.map (fun c -> Git.Commit_id.repo (Git.Commit.id c)) compiler_commit in
+  let compiler_commit_id = Current.map Git.Commit.id compiler_commit in
+  let analysis = analysis_with_compiler_component ~solver ?label ~compiler_commit:compiler_commit_id commit in
+  let builds = build_with_docker ?ocluster ~repo:cache_hint ~compiler_commit ?label ~analysis commit in
+  Current.ignore_value (summarise_builds builds)
 
 let build_from_clone ?ocluster ~solver (repo_clone: (string * Git.Commit.t Current.t)) =
   let (repo_url, commit) = repo_clone in
@@ -195,16 +204,14 @@ let build_from_clone ?ocluster ~solver (repo_clone: (string * Git.Commit.t Curre
     in
     let downstream_builds = clone_fixed_repos () |>
       List.filter_map (fun child_repo_clone ->
-        let (child_repo_url, _) = child_repo_clone in
+        let (child_repo_url, child_commit) = child_repo_clone in
         if is_compiler_from_repo_url child_repo_url then
           None
         else
           Some (
-              let (_, build) = build_from_clone_with_compiler ?ocluster ~solver
-                ~compiler_commit child_repo_clone
-              in
-              build
-            )
+            build_with_compiler ?ocluster ~solver
+              ~compiler_commit ~label:child_repo_url child_commit
+          )
       )
     in
     Current.all downstream_builds

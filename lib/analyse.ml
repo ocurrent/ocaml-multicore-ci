@@ -5,6 +5,8 @@ open Repo_url_utils
 
 module Worker = Ocaml_multicore_ci_api.Worker
 
+let opam_ext_re = Str.regexp "\\.opam$"
+
 let pool = Current.Pool.create ~label:"analyse" 2
 
 let pp_platforms fmt platforms =
@@ -50,6 +52,22 @@ let make_placeholder_selections ~platforms ~opam_repository_commits =
   platforms |> List.map (fun platform ->
     { Selection.variant = fst platform; packages = []; commit = Current_git.Commit_id.hash (List.hd opam_repository_commits) }
   )
+
+(* Remove all the *.dev packages in opam_files from the given selections *)
+let remove_dev_selections_from_opam_build ~opam_files selections =
+  selections |> List.map (fun sel -> List.fold_left (fun acc opam_file ->
+    let opam_dev = Str.global_replace opam_ext_re ".dev" opam_file in
+    Selection.remove_package acc ~package:opam_dev
+  ) sel opam_files)
+
+(* Remove all the *.dev packages in opam_files from the given build,
+   if it uses Opam_build. This operation is not implemented for the other
+   build types. *)
+let remove_dev_selections ~opam_files = function
+  | `Opam_build selections ->
+    `Opam_build (remove_dev_selections_from_opam_build ~opam_files selections)
+  | `Opam_monorepo _ as x -> x
+  | `Not_opam _ as x -> x
 
 module Analysis = struct
   type t = {
@@ -186,14 +204,15 @@ module Analysis = struct
     | Ok x -> Ok (List.map Selection.of_worker x)
     | Error (`Msg msg) -> Fmt.error_msg "Error from solver: %s" msg
 
-  let of_dir ~solver ~job ~platforms ~opam_repository_commits ~package_name ?is_compiler dir =
+  let of_dir ~solver ~job ~platforms ~opam_repository_commits ~package_name ?is_compiler ?compiler_commit dir =
     let is_compiler = Option.value is_compiler ~default:false in
     Current.Job.log job
-      "Analysing %s: @[platforms=@[%a@]@,opam_repository_commits=@[%a@]@,is_compiler=%a@]"
+      "Analysing %s: @[platforms=@[%a@]@,opam_repository_commits=@[%a@]@,is_compiler=%a@,compiler_commit=%a@]"
         package_name
         pp_platforms platforms
         (Fmt.list Git.Commit_id.pp) opam_repository_commits
-        Fmt.bool is_compiler;
+        Fmt.bool is_compiler
+        (Fmt.option Git.Commit_id.pp) compiler_commit;
     let solve = solve ~opam_repository_commits ~job ~solver in
     let ty = type_of_dir dir in
     let cmd = "", [| "find"; "."; "-maxdepth"; "3"; "-name"; "*.opam" |] in
@@ -237,6 +256,10 @@ module Analysis = struct
         | `Opam_monorepo info -> Opam_monorepo.selection ~info ~solve ~platforms
         | `Ocaml_repo -> opam_selections ~solve ~job ~platforms ~opam_files dir
       end >>!= fun selections ->
+      let selections = match compiler_commit with
+      | None -> selections
+      | Some _ -> remove_dev_selections ~opam_files selections
+      in
       let r = { opam_files; ocamlformat_source; selections } in
       Current.Job.log job "@[Results:@,%a@]" Yojson.Safe.(pretty_print ~std:true) (to_yojson r);
       Lwt_result.return r
@@ -256,11 +279,18 @@ module Examine = struct
   type t = Ocaml_multicore_ci_api.Solver.t
 
   module Key = struct
-    type t = Current_git.Commit.t
+    type t = {
+      src: Current_git.Commit.t;
+      compiler_commit : Current_git.Commit_id.t option;
+    }
 
-    let digest src =
+    let digest { src; compiler_commit } =
       let json = `Assoc [
           "src", commit_to_yojson src;
+          "compiler_commit",
+            match compiler_commit with
+            | None -> `Null
+            | Some cc -> commit_id_to_yojson cc
         ]
       in
       Yojson.Safe.to_string json
@@ -271,9 +301,10 @@ module Examine = struct
       opam_repository_commits : Current_git.Commit_id.t list;
       platforms : (Variant.t * Worker.Vars.t) list;
       is_compiler : bool;
+      compiler_commit : Current_git.Commit_id.t option;
     }
 
-    let digest { opam_repository_commits; platforms; is_compiler } =
+    let digest { opam_repository_commits; platforms; is_compiler; compiler_commit } =
       let json = `Assoc [
           "opam-repositories",
             commit_ids_to_yojson opam_repository_commits;
@@ -281,6 +312,10 @@ module Examine = struct
             platforms_to_yojson platforms;
           "is_compiler",
             `Bool is_compiler;
+          "compiler_commit",
+            match compiler_commit with
+            | None -> `Null
+            | Some cc -> commit_id_to_yojson cc
         ]
       in
       Yojson.Safe.to_string json
@@ -290,13 +325,13 @@ module Examine = struct
 
   let id = "ci-analyse"
 
-  let run solver job src { Value.opam_repository_commits; platforms; is_compiler } =
+  let run solver job { Key.src; _ } { Value.opam_repository_commits; platforms; is_compiler; compiler_commit } =
     let package_name = package_name_from_commit src in
     Current.Job.start job ~pool ~level:Current.Level.Harmless >>= fun () ->
     Current_git.with_checkout ~job src @@ fun src ->
-    Analysis.of_dir ~solver ~platforms ~opam_repository_commits ~job ~package_name ~is_compiler src
+    Analysis.of_dir ~solver ~platforms ~opam_repository_commits ~job ~package_name ~is_compiler ?compiler_commit src
 
-  let pp f _ = Fmt.string f "Analyse"
+  let pp f (k, v) = Fmt.pf f "Analyse %s %s" (Key.digest k) (Value.digest v)
 
   let auto_cancel = true
   let latched = true
@@ -307,15 +342,18 @@ module Examine_cache = Current_cache.Generic(Examine)
 let remap_platforms platforms =
   platforms |> List.map (fun { Platform.variant; vars; _ } -> (variant, vars))
 
-let platforms_without_variants platforms =
+let filter_variant_platforms platforms =
   platforms |> List.filter (fun platform ->
     let ov = Variant.ocaml_version platform.Platform.variant in
-    Ocaml_version.extra ov = None
+    Ocaml_version.extra ov <> None
   )
+
+let first_variant_platform platforms =
+  filter_variant_platforms platforms |> List.hd |> (fun x -> [x])
 
 let platforms_for_package ~is_compiler platforms =
   if is_compiler then
-    platforms_without_variants platforms
+    first_variant_platform platforms
   else
     platforms
 
@@ -332,4 +370,17 @@ let examine ?label ~solver ~platforms ~opam_repository_commits ~is_compiler src 
   and> platforms = platforms in
   let platforms = platforms_for_package ~is_compiler platforms |> remap_platforms in
   let opam_repository_commits = opam_repos_for_package ~is_compiler opam_repository_commits in
-  Examine_cache.run solver src { Examine.Value.opam_repository_commits; platforms; is_compiler }
+  Examine_cache.run solver
+    { src; compiler_commit=None }
+    { Examine.Value.opam_repository_commits; platforms; is_compiler; compiler_commit=None }
+
+let examine_with_compiler ?label ~solver ~platforms ~opam_repository_commits ~compiler_commit src =
+  Current.component "Analysis@ %a@ (c)" Fmt.(option string) label |>
+  let> src = src
+  and> compiler_commit = compiler_commit
+  and> opam_repository_commits = opam_repository_commits
+  and> platforms = platforms in
+  let platforms = first_variant_platform platforms |> remap_platforms in
+  Examine_cache.run solver
+    { src; compiler_commit=(Some compiler_commit) }
+    { Examine.Value.opam_repository_commits; platforms; is_compiler=false; compiler_commit=(Some compiler_commit) }

@@ -12,6 +12,13 @@ val spec_dune :
   selection:Selection.t ->
   Obuilder_spec.t
 
+val spec_opam_install :
+  base:string ->
+  opam_files:string list ->
+  compiler_commit:Current_git.Commit_id.t option ->
+  selection:Selection.t ->
+  Obuilder_spec.t
+
 val spec_make :
   base:string ->
   opam_files:string list ->

@@ -1,3 +1,5 @@
+let opam_ext_re = Str.regexp "\\.opam$"
+
 let host_network = ["host"]
 let opam_download_cache = [ Obuilder_spec.Cache.v "opam-archives" ~target:"/home/opam/.opam/download-cache" ]
 
@@ -125,22 +127,29 @@ let update_opam_repository selection =
        && opam update -u" commit commit;
   ]
 
-let install_just_project_deps ~opam_files selection =
-  let { Selection.commit; _ } = selection in
-  let groups = group_opam_files opam_files in
+let copy_src =
   let open Obuilder_spec in
-  let network = host_network in
   [
-    comment "Initialize project source from %s" commit;
+    comment "Initialize project source";
+    copy ["."] ~dst:"/src/";
     workdir "/src";
-    run "sudo chown opam /src";
-  ] @ pin_opam_files ~network groups
-  @ install_deps ~groups ~selection
+  ]
 
+let pin_and_install_deps ~opam_files selection =
+  let groups = group_opam_files opam_files in
+  let network = host_network in
+  pin_opam_files ~network groups @
+    install_deps ~groups ~selection
+
+    (*
+let install_opam_deps ~opam_files selection =
+  let groups = group_opam_files opam_files in
+  install_deps ~groups ~selection
+*)
 let install_project_deps ~opam_files ~selection =
   install_os_deps selection @
     update_opam_repository selection @
-    install_just_project_deps ~opam_files selection
+    pin_and_install_deps ~opam_files selection
 
 let install_compiler = function
 | None -> []
@@ -149,8 +158,6 @@ let install_compiler = function
   let open Obuilder_spec in
   [
     comment "Create switch for compiler (%s)" switch_name;
-    copy ["./compiler-src"] ~dst:"/compiler-src/";
-    workdir "/compiler-src";
     run "opam switch create %s --empty && opam repository && opam pin add -k path --inplace-build ocaml-variants.4.12.0+multicore ." switch_name
   ]
 
@@ -162,22 +169,34 @@ let spec_helper ~body ~base ~opam_files ~compiler_commit ~selection =
   ] @
     install_os_deps selection @
     update_opam_repository selection @
+    copy_src @
     install_compiler compiler_commit @
     (if body = [] then
        []
-     else
-       install_just_project_deps ~opam_files selection @
-         [copy ["."] ~dst:"/src/"] @
+     else if compiler_commit = None then
+       pin_and_install_deps ~opam_files selection @
          body
+     else
+       body
     )
   )
 
 let spec_script ~base ~opam_files ~compiler_commit ~selection ~cmds =
-  let body = cmds |> List.map (fun cmd -> Obuilder_spec.run "opam exec -- %s" cmd) in
+  let cmds = cmds |> List.map (fun cmd -> Obuilder_spec.run "opam exec -- %s" cmd) in
+  let body = Obuilder_spec.comment "Run build" :: cmds in
   spec_helper ~body ~base ~opam_files ~compiler_commit ~selection
 
 let spec_dune ~base ~opam_files ~compiler_commit ~selection =
   let cmds = ["dune build @install @runtest && rm -rf _build"] in
+  spec_script ~base ~opam_files ~compiler_commit ~selection ~cmds
+
+let spec_opam_install ~base ~opam_files ~compiler_commit ~selection =
+  let opam_packages =
+    opam_files |> List.map (Str.global_replace opam_ext_re "")
+  in
+  let cmds = [
+    Fmt.str "opam install %a" Fmt.(list ~sep:(unit " ") string) opam_packages
+  ] in
   spec_script ~base ~opam_files ~compiler_commit ~selection ~cmds
 
 let spec_make ~base ~opam_files ~compiler_commit ~selection ~targets =
