@@ -238,7 +238,7 @@ module Analysis = struct
         | `Ocaml_repo -> opam_selections ~solve ~job ~platforms ~opam_files dir
       end >>!= fun selections ->
       let r = { opam_files; ocamlformat_source; selections } in
-      Current.Job.log job "@[<v2>Results:@,%a@]" Yojson.Safe.(pretty_print ~std:true) (to_yojson r);
+      Current.Job.log job "@[Results:@,%a@]" Yojson.Safe.(pretty_print ~std:true) (to_yojson r);
       Lwt_result.return r
     )
 end
