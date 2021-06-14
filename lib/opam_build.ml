@@ -62,7 +62,7 @@ let pin_opam_files ~network groups =
       |> run ~network "%s"
     ]
     in
-    comment "Pin project opam files" :: cmds
+    comment "Pin project opam files" :: workdir "/src" :: cmds
 
 (* Get the packages directly in "." *)
 let rec get_root_opam_packages = function
@@ -141,19 +141,12 @@ let pin_and_install_deps ~opam_files selection =
   pin_opam_files ~network groups @
     install_deps ~groups ~selection
 
-    (*
-let install_opam_deps ~opam_files selection =
-  let groups = group_opam_files opam_files in
-  install_deps ~groups ~selection
-*)
 let install_project_deps ~opam_files ~selection =
   install_os_deps selection @
     update_opam_repository selection @
     pin_and_install_deps ~opam_files selection
 
-let install_compiler = function
-| None -> []
-| Some commit ->
+let install_compiler commit =
   let switch_name = compiler_switch_name_from_commit commit in
   let open Obuilder_spec in
   [
@@ -169,16 +162,15 @@ let spec_helper ~body ~base ~opam_files ~compiler_commit ~selection =
   ] @
     install_os_deps selection @
     update_opam_repository selection @
-    copy_src @
-    install_compiler compiler_commit @
-    (if body = [] then
-       []
-     else if compiler_commit = None then
-       pin_and_install_deps ~opam_files selection @
-         body
-     else
-       body
-    )
+    (match compiler_commit with
+    | None ->
+      pin_and_install_deps ~opam_files selection @
+        copy_src
+    | Some compiler_commit ->
+      copy_src @
+        install_compiler compiler_commit
+    ) @
+    body
   )
 
 let spec_script ~base ~opam_files ~compiler_commit ~selection ~cmds =
