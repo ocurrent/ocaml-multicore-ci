@@ -4,7 +4,7 @@ let render () =
   Template.instance [
     p [txt "Welcome to OCaml-Multicore-CI!"];
     p [txt "See ";
-       a ~a:[a_href "https://github.com/apps/ocaml-multicore-ci"] [
+       a ~a:[a_href "https://github.com/apps/multicore-ci"] [
          txt "The OCaml-Multicore-CI GitHub App"
        ];
        txt " for details.";
