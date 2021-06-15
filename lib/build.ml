@@ -128,7 +128,13 @@ module Op = struct
     Current_git.with_checkout ~pool:checkout_pool ~job build_context_commit @@ fun dir ->
     Current.Job.write job (Fmt.strf "Writing BuildKit Dockerfile:@.%s@." dockerfile);
     Bos.OS.File.write Fpath.(dir / "Dockerfile") (dockerfile ^ "\n") |> or_raise;
-    Bos.OS.File.write Fpath.(dir / ".dockerignore") dockerignore |> or_raise;
+    (* Normally, we write a dockerignore so that the .git directory isn't
+     * copied. However, the multicore compiler writes its git hash and
+     * branch into the ocamlrun -version output, so it needs .git.
+     *)
+    if compiler_commit = None
+    then
+      Bos.OS.File.write Fpath.(dir / ".dockerignore") dockerignore |> or_raise;
     let cmd = Raw.Cmd.docker ~docker_context @@ ["build"; "--"; Fpath.to_string dir] in
     let pp_error_command f = Fmt.string f "Docker build" in
     Current.Process.exec ~cancellable:true ~pp_error_command ~job cmd
