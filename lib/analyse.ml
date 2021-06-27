@@ -112,42 +112,53 @@ module Analysis = struct
       if OpamVersion.compare opam_version version_2 < 0 then
         Fmt.failwith "Package %S uses unsupported opam version %s (need >= 2)" name (OpamVersion.to_string opam_version)
 
+  let check_all_opam_version pkgs =
+    pkgs |> List.iter (fun (name, opam) -> check_opam_version name opam)
+
+  let parse_opam_file pkg =
+    let (name, contents) = pkg in
+    try
+      (name, OpamFile.OPAM.read_from_string contents)
+    with ex ->
+      Fmt.failwith "Invalid opam file %S: %a" name Fmt.exn ex
+
+  let find_all_pin_depends pkgs =
+    pkgs
+    |> List.map (fun (name, opam) ->
+      let pin_depends = OpamFile.OPAM.pin_depends opam in
+      pin_depends |> List.map (fun (pkg, url) -> (name, pkg, url)))
+    |> List.concat
+
+  let log_pin_depends ~job pin_depends =
+    pin_depends
+    |> List.iter (fun (root_pkg, pkg, url) ->
+      Current.Job.log job "%s: found pin-depends: %s -> %s"
+        root_pkg (OpamPackage.to_string pkg) (OpamUrl.to_string url)
+    )
+
+  let process_pin_depends ~job pin_depends =
+    pin_depends |> Lwt_list.map_s (fun (root_pkg, pkg, url) ->
+      Lwt.catch
+        (fun () ->
+           Pin_depends.get_opam ~job ~pkg url >|= fun contents ->
+           (OpamPackage.to_string pkg, contents)
+        )
+        (function
+          | Failure msg -> Fmt.failwith "%s (processing pin-depends in %s)" msg root_pkg
+          | ex -> Lwt.fail ex
+        )
+    )
+
   (* For each package in [root_pkgs], parse the opam file and check whether it uses pin-depends.
      Fetch and return all pinned opam files. Also, ensure we're using opam format version 2. *)
   let handle_opam_files ~job ~root_pkgs ~pinned_pkgs =
-    pinned_pkgs |> List.iter (fun (name, contents) ->
-        check_opam_version name (OpamFile.OPAM.read_from_string contents)
-      );
-    let pin_depends =
-      root_pkgs
-      |> List.map (fun (name, contents) ->
-          let opam =
-            try
-              OpamFile.OPAM.read_from_string contents
-            with ex ->
-              Fmt.failwith "Invalid opam file %S: %a" name Fmt.exn ex
-          in
-          check_opam_version name opam;
-          let pin_depends = OpamFile.OPAM.pin_depends opam in
-          pin_depends |> List.map (fun (pkg, url) ->
-              Current.Job.log job "%s: found pin-depends: %s -> %s"
-                name (OpamPackage.to_string pkg) (OpamUrl.to_string url);
-              (name, pkg, url)
-            )
-        )
-      |> List.concat
-    in
-    pin_depends |> Lwt_list.map_s (fun (root_pkg, pkg, url) ->
-        Lwt.catch
-          (fun () ->
-             Pin_depends.get_opam ~job ~pkg url >|= fun contents ->
-             (OpamPackage.to_string pkg, contents)
-          )
-          (function
-            | Failure msg -> Fmt.failwith "%s (processing pin-depends in %s)" msg root_pkg
-            | ex -> Lwt.fail ex
-          )
-      )
+    let root_pkgs_parsed = root_pkgs |> List.map parse_opam_file in
+    let pinned_pkgs_parsed = pinned_pkgs |> List.map parse_opam_file in
+    check_all_opam_version root_pkgs_parsed;
+    check_all_opam_version pinned_pkgs_parsed;
+    let pin_depends = find_all_pin_depends root_pkgs_parsed in
+    log_pin_depends ~job pin_depends;
+    process_pin_depends ~job pin_depends
 
   let opam_selections ~solve ~job ~platforms ~opam_files dir =
     Current.Job.log job "Solving: @[platforms=%a@,opam_files=%a@]" pp_platforms platforms Fmt.(list ~sep:(unit ", ") string) opam_files;
