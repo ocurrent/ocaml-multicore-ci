@@ -8,6 +8,13 @@ module Docker = Current_docker.Default
 
 let opam_repository_commits = Conf.opam_repository_commits
 
+let tidy_label label =
+  Fmt.str "%a" Fmt.(list string) (String.split_on_char '@' label)
+
+let tidy_label_opt = function
+| None -> None
+| Some label -> Some (tidy_label label)
+
 let is_compiler_from_repo_url repo_url =
   let package_name = Repo_url_utils.package_name_from_url repo_url in
   Conf.is_compiler_package package_name
@@ -104,6 +111,7 @@ let build_with_docker ?ocluster ~repo ?compiler_commit ?label ~analysis source =
     | Ok analysis ->
       make_opam_specs analysis
   in
+  let label = tidy_label_opt label in
   let+ builds = specs |> Current.list_map ?label (module Spec) (place_build ~ocluster ~repo ?compiler_commit ~source)
   and+ analysis_result = Current.state ~hidden:true (Current.map (fun _ -> `Checked) analysis)
   and+ analysis_id = get_job_id analysis in
@@ -116,6 +124,11 @@ let analysis_component ?label ~solver ~is_compiler commit =
 
 let analysis_with_compiler_component ?label ~solver ~compiler_commit commit =
   Analyse.examine_with_compiler ?label ~solver ~platforms ~opam_repository_commits ~compiler_commit commit
+
+let build_from_clone_component ?compiler_commit repo_clone =
+  let (repo_url, commit) = repo_clone in
+  let (repo_url, _) = Repo_url_utils.url_gref_from_url repo_url in
+  Build_from_clone_component.v ~repo_url ?compiler_commit commit
 
 let cascade_component ~build (commit: Git.Commit.t Current.t) =
   Current.component "cascade" |>
@@ -153,7 +166,7 @@ let clone_fixed_repos (): (string * Git.Commit.t Current.t) list =
     set_active_repo_names ~owner repo_names;
     repo_urls |> List.map (fun repo_url ->
       let (url, gref) = Repo_url_utils.url_gref_from_url repo_url in
-      (url, (Git.clone ~schedule:daily ~gref url))
+      (repo_url, (Git.clone ~schedule:daily ~gref url))
     )
   ) |> List.flatten
 
@@ -173,11 +186,11 @@ let fetch_analyse_build_summarise ?ocluster ~solver ~repo ?label head =
   ]
 
 let build_from_clone_with_compiler ?ocluster ~solver ?compiler_commit repo_clone =
-  let (repo_url, commit) = repo_clone in
-  let commit = Build_from_clone_component.v ~repo_url ?compiler_commit commit in
+  let (repo_url, _) = repo_clone in
+  let commit = build_from_clone_component ?compiler_commit repo_clone in
   let repo_id = Repo_url_utils.repo_id_from_url repo_url in
   let hash = Current.map Git.Commit.hash commit in
-  let label = Repo_url_utils.owner_slash_name_from_url repo_url in
+  let label = Repo_url_utils.owner_name_gref_from_url repo_url in
   let is_compiler = is_compiler_from_repo_url repo_url in
   let (builds, summary) = analyse_build_summarise ?ocluster ~solver ~is_compiler ?compiler_commit ~label ~repo:(Current.return repo_url) commit in
   let recorded_builds = record_builds ~repo:(Current.return repo_id) ~hash ~builds ~summary
@@ -199,6 +212,7 @@ let build_from_clone ?ocluster ~solver (repo_clone: (string * Git.Commit.t Curre
       build_from_clone_with_compiler ?ocluster ~solver
         ~compiler_commit:commit repo_clone
     in
+    let (_, compiler_gref) = Repo_url_utils.url_gref_from_url repo_url in
     let compiler_commit =
       cascade_component ~build:compiler_build compiler_commit
     in
@@ -208,9 +222,10 @@ let build_from_clone ?ocluster ~solver (repo_clone: (string * Git.Commit.t Curre
         if is_compiler_from_repo_url child_repo_url then
           None
         else
+          let label = Fmt.str "%s@ (%s)" (tidy_label child_repo_url) compiler_gref in
           Some (
             build_with_compiler ?ocluster ~solver
-              ~compiler_commit ~label:child_repo_url child_commit
+              ~compiler_commit ~label child_commit
           )
       )
     in

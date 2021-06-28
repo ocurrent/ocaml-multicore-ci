@@ -19,21 +19,29 @@ let owner_name_from_url url =
   | [name; owner] -> (owner, name)
   | _ -> assert false
 
-let owner_slash_name_from_url url =
-  let (owner, name) = owner_name_from_url url in
-  owner ^ "/" ^ name
-
 let url_gref_from_url url =
   let bits = url |> String.split_on_char '@' in
   match bits with
   | [url; gref] -> (url, gref)
   | _ -> (url, "master")
 
+let owner_slash_name_from_url url =
+  let (url, _) = url_gref_from_url url in
+  let (owner, name) = owner_name_from_url url in
+  owner ^ "/" ^ name
+
+let owner_name_gref_from_url url =
+  let (url, gref) = url_gref_from_url url in
+  let (owner, name) = owner_name_from_url url in
+  owner ^ "/" ^ name ^ "@" ^ gref
+
 let repo_id_from_url url =
+  let (url, _) = url_gref_from_url url in
   let (owner, name) = owner_name_from_url url in
   { Current_github.Repo_id.owner; name }
 
 let package_name_from_url url =
+  let (url, _) = url_gref_from_url url in
   url |>
     (String.split_on_char '/') |>
     List.rev |>

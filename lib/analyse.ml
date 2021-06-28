@@ -426,8 +426,15 @@ let opam_repos_for_package ~is_compiler opam_repository_commits =
   else
     opam_repository_commits
 
+let split_label = function
+| None -> ("", "")
+| Some s -> match String.split_on_char '@' s with
+  | [a; b] -> (a, b)
+  | _ -> (s, "")
+
 let examine ?label ~solver ~platforms ~opam_repository_commits ~is_compiler src =
-  Current.component "Analyse@ %a" Fmt.(option string) label |>
+  let (label1, label2) = split_label label in
+  Current.component "Analyse@ %s@ %s" label1 label2 |>
   let> src = src
   and> opam_repository_commits = opam_repository_commits
   and> platforms = platforms in
@@ -438,7 +445,7 @@ let examine ?label ~solver ~platforms ~opam_repository_commits ~is_compiler src 
     { Examine.Value.opam_repository_commits; platforms; is_compiler; compiler_commit=None }
 
 let examine_with_compiler ?label ~solver ~platforms ~opam_repository_commits ~compiler_commit src =
-  Current.component "Analysis@ %a@ (c)" Fmt.(option string) label |>
+  Current.component "Analysis@ %a" Fmt.(option string) label |>
   let> src = src
   and> compiler_commit = compiler_commit
   and> opam_repository_commits = opam_repository_commits
