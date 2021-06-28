@@ -120,15 +120,15 @@ let opam_repository_commits =
 
 let fixed_repos = [
   "https://github.com/AbsInt/CompCert";
-  "https://github.com/coq/coq";
-  "https://github.com/janestreet/async";
-  "https://github.com/janestreet/base";
-  "https://github.com/janestreet/core";
-  "https://github.com/janestreet/core_kernel";
-  "https://github.com/ocaml-batteries-team/batteries-included";
+  "https://github.com/coq/coq@V8.13.2";
+  "https://github.com/janestreet/async@v0.14.0";
+  "https://github.com/janestreet/base@v0.14.1";
+  "https://github.com/janestreet/core@v0.14.1";
+  "https://github.com/janestreet/core_kernel@v0.14.1";
+  "https://github.com/ocaml-batteries-team/batteries-included@v3.3.0";
   "https://github.com/ocaml-multicore/ocaml-multicore@4.12+domains";
   "https://github.com/ocaml-multicore/ocaml-multicore@4.12+domains+effects";
-  "https://github.com/ocsigen/lwt";
+  "https://github.com/ocsigen/lwt@5.4.1";
 ]
 
 let build_mechanism_for_package package =
