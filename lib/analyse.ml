@@ -195,18 +195,21 @@ module Analysis = struct
          default command. *)
       None
 
-  (** If the opam file for the given selection includes a build command, use
+  (** If the opam file for the given root_pkgs includes a build command, use
       that instead of the default (dune build @install @runtests).  This is
-      put into Selection.command to be picked up by the build phase. *)
-  let maybe_add_build_command ~pkgs selection =
-    let first_pkg_name = (List.hd selection.Selection.packages) in
-    match List.assoc_opt first_pkg_name pkgs with
-    | Some opam_str ->
-        let pkg = Str.global_replace dev_re "" first_pkg_name in
-        let opam = OpamFile.OPAM.read_from_string opam_str in
-        let command = build_command_to_string ~pkg (OpamFile.OPAM.build opam) in
-        { Selection.variant=selection.Selection.variant; packages=selection.packages; commit=selection.commit; command=command }
-    | None ->
+      put into Selection.command to be picked up by the build phase.
+
+      This is only implemented if root_pkgs is a singleton, otherwise we
+      fall back to the default build command.
+    *)
+  let maybe_add_build_command ~root_pkgs selection =
+    match root_pkgs with
+    | [(pkg_name, opam_str)] ->
+      let pkg = Str.global_replace dev_re "" pkg_name in
+      let opam = OpamFile.OPAM.read_from_string opam_str in
+      let command = build_command_to_string ~pkg (OpamFile.OPAM.build opam) in
+      { Selection.variant=selection.Selection.variant; packages=selection.packages; commit=selection.commit; command=command }
+    | _ ->
       selection
 
   let opam_selections ~solve ~job ~platforms ~opam_files dir =
@@ -231,8 +234,7 @@ module Analysis = struct
          let pinned_pkgs = pin_depends @ pinned_pkgs in
          Lwt_result.map
             (fun selections ->
-              let pkgs = pinned_pkgs @ root_pkgs in
-              let selections_with_command = selections |> List.map (fun selection -> maybe_add_build_command ~pkgs selection) in
+              let selections_with_command = selections |> List.map (fun selection -> maybe_add_build_command ~root_pkgs selection) in
               `Opam_build selections_with_command)
             (solve ~root_pkgs ~pinned_pkgs ~platforms)
       )
