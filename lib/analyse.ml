@@ -6,6 +6,10 @@ open Repo_url_utils
 module Worker = Ocaml_multicore_ci_api.Worker
 
 let opam_ext_re = Str.regexp "\\.opam$"
+let dev_re = Str.regexp "\\.dev$"
+let dune_cmd_re = Str.regexp "^dune "
+let jobs_re = Str.regexp " -j jobs\\b"
+let package_name_re = Str.regexp " -p name\\b"
 
 let pool = Current.Pool.create ~label:"analyse" 2
 
@@ -50,7 +54,7 @@ let job_log job =
 
 let make_placeholder_selections ~platforms ~opam_repository_commits =
   platforms |> List.map (fun platform ->
-    { Selection.variant = fst platform; packages = []; commit = Current_git.Commit_id.hash (List.hd opam_repository_commits) }
+    { Selection.variant = fst platform; packages = []; commit = Current_git.Commit_id.hash (List.hd opam_repository_commits); command=None }
   )
 
 (* Remove all the *.dev packages in opam_files from the given selections *)
@@ -160,6 +164,51 @@ module Analysis = struct
     log_pin_depends ~job pin_depends;
     process_pin_depends ~job pin_depends
 
+  let arg_to_string = function
+  | (OpamTypes.CString str, _) -> str (* FIXME: Is this supposed to be escaped in some way? *)
+  | (OpamTypes.CIdent str, _) -> str
+
+  let args_to_string ~pkg args =
+    let cmd =
+      args
+      |> List.map arg_to_string
+      |> (String.concat " ")
+    in
+    (* If the command is a dune one, replace the -j jobs and -p name
+       arguments.  These are expected in a .opam file but we need to adjust
+       them for our own build. *)
+    if Str.string_match dune_cmd_re cmd 0 then
+      cmd
+      |> (Str.global_replace jobs_re "")
+      |> (Str.global_replace package_name_re (" -p " ^ pkg))
+    else
+      cmd
+
+  let build_command_to_string ~pkg command =
+    if command = [] then
+      None
+    else if List.for_all (fun (_, filter) -> filter = None) command then
+      let strs = command |> List.map (fun (args, _) -> args_to_string ~pkg args) in
+      Some (String.concat " && " strs)
+    else
+      (* We have not implemented processing of filters, so fall back to the
+         default command. *)
+      None
+
+  (** If the opam file for the given selection includes a build command, use
+      that instead of the default (dune build @install @runtests).  This is
+      put into Selection.command to be picked up by the build phase. *)
+  let maybe_add_build_command ~pkgs selection =
+    let first_pkg_name = (List.hd selection.Selection.packages) in
+    match List.assoc_opt first_pkg_name pkgs with
+    | Some opam_str ->
+        let pkg = Str.global_replace dev_re "" first_pkg_name in
+        let opam = OpamFile.OPAM.read_from_string opam_str in
+        let command = build_command_to_string ~pkg (OpamFile.OPAM.build opam) in
+        { Selection.variant=selection.Selection.variant; packages=selection.packages; commit=selection.commit; command=command }
+    | None ->
+      selection
+
   let opam_selections ~solve ~job ~platforms ~opam_files dir =
     Current.Job.log job "Solving: @[platforms=%a@,opam_files=%a@]" pp_platforms platforms Fmt.(list ~sep:(unit ", ") string) opam_files;
     let src = Fpath.to_string dir in
@@ -181,7 +230,10 @@ module Analysis = struct
       (fun pin_depends ->
          let pinned_pkgs = pin_depends @ pinned_pkgs in
          Lwt_result.map
-            (fun selections -> `Opam_build selections)
+            (fun selections ->
+              let pkgs = pinned_pkgs @ root_pkgs in
+              let selections_with_command = selections |> List.map (fun selection -> maybe_add_build_command ~pkgs selection) in
+              `Opam_build selections_with_command)
             (solve ~root_pkgs ~pinned_pkgs ~platforms)
       )
       (function

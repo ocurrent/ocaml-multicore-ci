@@ -3,6 +3,7 @@ type t = {
   variant : Variant.t;                (** The variant image to build on. *)
   packages : string list;             (** The selected packages ("name.version"). *)
   commit : string;                    (** A commit in opam-repository to use. *)
+  command : string option;            (** The build command to use (will default to dune build @install @runtest if not specified) *)
 } [@@deriving yojson, ord]
 
 let of_worker w =
@@ -13,7 +14,7 @@ let of_worker w =
      We only pass this one through to the worker because the Docker container
      for the build has only this one cloned to local storage. *)
   let commit = List.(hd commits |> snd) in
-  { variant; packages; commit }
+  { variant; packages; commit; command=None }
 
 let remove_package t ~package =
   {

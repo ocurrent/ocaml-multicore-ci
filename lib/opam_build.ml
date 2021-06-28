@@ -182,7 +182,11 @@ let spec_script ~base ~opam_files ~compiler_commit ~selection ~cmds =
   spec_helper ~body ~base ~opam_files ~compiler_commit ~selection
 
 let spec_dune ~base ~opam_files ~compiler_commit ~selection =
-  let cmds = ["dune build @install @runtest && rm -rf _build"] in
+  let cmd = match selection.Selection.command with
+  | Some c -> c
+  | None -> "dune build @install @runtest"
+  in
+  let cmds = [cmd ^ " && rm -rf _build"] in
   spec_script ~base ~opam_files ~compiler_commit ~selection ~cmds
 
 let spec_opam_install ~base ~opam_files ~compiler_commit ~selection =
