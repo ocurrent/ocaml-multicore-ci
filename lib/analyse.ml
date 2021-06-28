@@ -405,18 +405,18 @@ module Examine_cache = Current_cache.Generic(Examine)
 let remap_platforms platforms =
   platforms |> List.map (fun { Platform.variant; vars; _ } -> (variant, vars))
 
-let filter_variant_platforms platforms =
+let filter_invariant_platforms platforms =
   platforms |> List.filter (fun platform ->
     let ov = Variant.ocaml_version platform.Platform.variant in
-    Ocaml_version.extra ov <> None
+    Ocaml_version.extra ov = None
   )
 
-let first_variant_platform platforms =
-  filter_variant_platforms platforms |> List.hd |> (fun x -> [x])
+let first_invariant_platform platforms =
+  filter_invariant_platforms platforms |> List.hd |> (fun x -> [x])
 
 let platforms_for_package ~is_compiler platforms =
   if is_compiler then
-    first_variant_platform platforms
+    first_invariant_platform platforms
   else
     platforms
 
@@ -450,7 +450,7 @@ let examine_with_compiler ?label ~solver ~platforms ~opam_repository_commits ~co
   and> compiler_commit = compiler_commit
   and> opam_repository_commits = opam_repository_commits
   and> platforms = platforms in
-  let platforms = first_variant_platform platforms |> remap_platforms in
+  let platforms = first_invariant_platform platforms |> remap_platforms in
   Examine_cache.run solver
     { src; compiler_commit=(Some compiler_commit) }
     { Examine.Value.opam_repository_commits; platforms; is_compiler=false; compiler_commit=(Some compiler_commit) }
