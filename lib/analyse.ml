@@ -270,7 +270,7 @@ module Analysis = struct
   let of_dir ~solver ~job ~platforms ~opam_repository_commits ~package_name ?is_compiler ?compiler_commit dir =
     let is_compiler = Option.value is_compiler ~default:false in
     Current.Job.log job
-      "Analysing %s: @[platforms=@[%a@]@,opam_repository_commits=@[%a@]@,is_compiler=%a@,compiler_commit=%a@]"
+      "Analysing %s: @[<v>platforms=@[%a@]@,opam_repository_commits=@[%a@]@,is_compiler=%a@,compiler_commit=%a@]"
         package_name
         pp_platforms platforms
         (Fmt.list Git.Commit_id.pp) opam_repository_commits
