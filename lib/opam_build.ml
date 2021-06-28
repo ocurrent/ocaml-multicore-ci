@@ -154,6 +154,10 @@ let install_compiler commit =
     run "opam switch create %s --empty && opam repository && opam pin add -y -k path --inplace-build ocaml-variants.4.12.0+multicore . && eval $(opam env) && ocamlrun -version" switch_name
   ]
 
+let print_compiler_version =
+  let open Obuilder_spec in
+  run "eval $(opam env) && opam switch && ocamlrun -version"
+
 let spec_helper ~body ~base ~opam_files ~compiler_commit ~selection =
   let open Obuilder_spec in
   stage ~from:base ([
@@ -164,7 +168,8 @@ let spec_helper ~body ~base ~opam_files ~compiler_commit ~selection =
     update_opam_repository selection @
     (match compiler_commit with
     | None ->
-      pin_and_install_deps ~opam_files selection @
+      print_compiler_version ::
+        pin_and_install_deps ~opam_files selection @
         copy_src
     | Some compiler_commit ->
       copy_src @
