@@ -326,7 +326,7 @@ module Analysis = struct
       | Some _ -> remove_dev_selections ~opam_files selections
       in
       let r = { opam_files; ocamlformat_source; selections } in
-      Current.Job.log job "@[Results:@,%a@]" Yojson.Safe.(pretty_print ~std:true) (to_yojson r);
+      Current.Job.log job "@[<v2>Results:@,%a@]" Yojson.Safe.(pretty_print ~std:true) (to_yojson r);
       Lwt_result.return r
     )
 end
