@@ -6,7 +6,6 @@ module Store = Git_unix.Store
 let default_repo_url = "https://github.com/ocaml/opam-repository.git"
 
 let sanitize_re = Str.regexp "[^A-Za-z0-9-]"
-let git_ext_re = Str.regexp "\\.git$"
 
 let rec mkdir_p path =
   try Unix.mkdir path 0o700 with
@@ -27,7 +26,7 @@ let repo_url_to_clone_path repo_url =
                     | Some host -> Str.global_replace sanitize_re "_" host
                     | None -> "no_host"
     in
-    let sane_path = Uri.(path uri |> pct_decode |> Str.global_replace git_ext_re "" |> Str.global_replace sanitize_re "_") in
+    let sane_path = Uri.(path uri |> pct_decode |> Filename.chop_extension |> Str.global_replace sanitize_re "_") in
     Fpath.(v sane_host / sane_path)
 
 let clone ?(repo_url = default_repo_url) () =

@@ -1,5 +1,3 @@
-let opam_ext_re = Str.regexp "\\.opam$"
-
 let host_network = ["host"]
 let opam_download_cache = [ Obuilder_spec.Cache.v "opam-archives" ~target:"/home/opam/.opam/download-cache" ]
 
@@ -193,7 +191,7 @@ let spec_dune ~base ~opam_files ~compiler_commit ~selection =
 
 let spec_opam_install ~base ~opam_files ~compiler_commit ~selection =
   let opam_packages =
-    opam_files |> List.map (Str.global_replace opam_ext_re "")
+    opam_files |> List.map Filename.chop_extension
   in
   let cmds = [
     Fmt.str "opam install %a" Fmt.(list ~sep:(unit " ") string) opam_packages
