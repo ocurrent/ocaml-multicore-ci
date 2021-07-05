@@ -196,21 +196,37 @@ let spec_dune ~base ~opam_files ~compiler_commit ~selection =
   let cmds = [cmd ^ " && rm -rf _build"] in
   spec_script ~base ~opam_files ~compiler_commit ~selection ~cmds
 
+(* Remove packages that are not in upstream opam-repository *)
+let is_package_blocklisted p =
+  match p with
+  | "coq-doc"
+  | "coqide-server"
+  | "lwt_luv" -> true
+  | _ -> false
+
+let filter_opam_packages pkgs =
+  pkgs |> List.filter (fun p -> not (is_package_blocklisted p))
+
+(* Remove "vendor" opam files from the list of things that we're going
+ * to install.  This is required for irmin, which has vendored some
+ * packages that are not themselves in opam.
+ *
+ * This seems like a hack that is not generic enough to be useful for
+ * other packages, but I can't think of a better way to handle this
+ * right now.
+ *)
+let filter_opam_files paths =
+  paths |> List.filter (
+    fun p -> not (Astring.String.is_prefix ~affix:"vendor" p)
+  )
+
 let spec_opam_install ~base ~opam_files ~compiler_commit ~selection =
-  (* Remove "vendor" opam files from the list of things that we're going
-   * to install.  This is required for irmin, which has vendored some
-   * packages that are not themselves in opam.
-   *
-   * This seems like a hack that is not generic enough to be useful for
-   * other packages, but I can't think of a better way to handle this
-   * right now.
-   *)
-  let opam_files =
-    opam_files |> List.filter (
-      fun f -> not (Astring.String.is_prefix ~affix:"vendor" f)
-  ) in
   let opam_packages =
-    opam_files |> List.map Filename.chop_extension
+    opam_files
+    |> filter_opam_files
+    |> List.map Filename.basename
+    |> List.map Filename.chop_extension
+    |> filter_opam_packages
   in
   let pkgs_str = Fmt.(to_to_string (list ~sep:(unit " ") string) opam_packages) in
   let cmds = [
