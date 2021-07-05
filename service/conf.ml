@@ -144,3 +144,18 @@ let is_compiler_package package =
   match package with
   | "ocaml-multicore" -> true
   | _ -> false
+
+(*
+ * Exclude a combo of compiler version (ov) and package from the build.
+ * This is used e.g. for packages that are incompatible with the syntax
+ * extensions in +domains+effects compilers.
+ *)
+let is_compiler_blocklisted ov package =
+  match OV.extra ov with
+  | Some "domains+effects" -> begin
+    match package with
+    | "CompCert"
+    | "coq" -> true
+    | _ -> false
+  end
+  | _ -> false

@@ -416,11 +416,18 @@ let filter_invariant_platforms platforms =
 let first_invariant_platform platforms =
   filter_invariant_platforms platforms |> List.hd |> (fun x -> [x])
 
-let platforms_for_package ~is_compiler platforms =
+let platforms_for_package_helper ~is_compiler platforms =
   if is_compiler then
     first_invariant_platform platforms
   else
     platforms
+
+let platforms_for_package ~is_compiler ~get_is_compiler_blocklisted ~platforms package_name =
+  platforms_for_package_helper ~is_compiler platforms
+  |> List.filter (fun platform ->
+    let ov = Variant.ocaml_version platform.Platform.variant in
+    not (get_is_compiler_blocklisted ov package_name)
+  )
 
 let opam_repos_for_package ~is_compiler opam_repository_commits =
   if is_compiler then
@@ -434,13 +441,15 @@ let split_label = function
   | [a; b] -> (a, b)
   | _ -> (s, "")
 
-let examine ?label ~solver ~platforms ~opam_repository_commits ~is_compiler src =
+let examine ?label ~solver ~platforms ~opam_repository_commits ~is_compiler ~get_is_compiler_blocklisted ~repo src =
   let (label1, label2) = split_label label in
   Current.component "Analyse@ %s@ %s" label1 label2 |>
   let> src = src
+  and> repo = repo
   and> opam_repository_commits = opam_repository_commits
   and> platforms = platforms in
-  let platforms = platforms_for_package ~is_compiler platforms |> remap_platforms in
+  let package_name = Repo_url_utils.package_name_from_url repo in
+  let platforms = platforms_for_package ~is_compiler ~get_is_compiler_blocklisted ~platforms package_name |> remap_platforms in
   let opam_repository_commits = opam_repos_for_package ~is_compiler opam_repository_commits in
   Examine_cache.run solver
     { src; compiler_commit=None }

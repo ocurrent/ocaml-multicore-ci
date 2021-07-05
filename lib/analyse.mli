@@ -28,6 +28,8 @@ val examine :
   platforms:Platform.t list Current.t ->
   opam_repository_commits:Current_git.Commit_id.t list Current.t ->
   is_compiler:bool ->
+  get_is_compiler_blocklisted:(Ocaml_version.t -> string -> bool) ->
+  repo:string Current.t ->
   Current_git.Commit.t Current.t ->
   Analysis.t Current.t
 (** [examine ~solver ~platforms ~opam_repository_commit src] analyses the source code [src] and selects

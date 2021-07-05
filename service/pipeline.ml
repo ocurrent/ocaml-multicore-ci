@@ -19,6 +19,16 @@ let is_compiler_from_repo_url repo_url =
   let package_name = Repo_url_utils.package_name_from_url repo_url in
   Conf.is_compiler_package package_name
 
+let is_compiler_blocklisted ov repo_url =
+  let package_name = Repo_url_utils.package_name_from_url repo_url in
+  Conf.is_compiler_blocklisted ov package_name
+
+let gref_to_version gref =
+  let open Ocaml_version in
+  match of_string gref with
+  | Ok v -> v
+  | _ -> Ocaml_version.of_string_exn "4.12"
+
 let platforms =
   let schedule = monthly in
   let v { Conf.label; builder; pool; distro; ocaml_version; arch } =
@@ -140,8 +150,9 @@ let cascade_component ~build (commit: Git.Commit.t Current.t) =
 let local_test ?label ~solver repo () =
   let src = Git.Local.head_commit repo in
   let repo = Current.return { Github.Repo_id.owner = "local"; name = "test" } in
-  let repo_str = Current.map (Fmt.to_to_string Current_github.Repo_id.pp) repo in
-  let analysis = analysis_component ?label ~solver ~is_compiler:false src in
+  let repo_str = Current.map (Fmt.to_to_string Github.Repo_id.pp) repo in
+  let get_is_compiler_blocklisted _ _ = false in
+  let analysis = analysis_component ?label ~solver ~is_compiler:false ~get_is_compiler_blocklisted ~repo:repo_str src in
   Current.component "summarise" |>
   let> results = build_with_docker ~repo:repo_str ?label ~analysis src in
   let result =
@@ -171,7 +182,7 @@ let clone_fixed_repos (): (string * Git.Commit.t Current.t) list =
   ) |> List.flatten
 
 let analyse_build_summarise ?ocluster ~solver ~repo ~is_compiler ?compiler_commit ?label commit =
-  let analysis = analysis_component ~solver ?label ~is_compiler commit in
+  let analysis = analysis_component ~solver ?label ~is_compiler ~get_is_compiler_blocklisted:is_compiler_blocklisted ~repo commit in
   let builds = build_with_docker ?ocluster ~repo ?compiler_commit ?label ~analysis commit in
   (builds, summarise_builds builds)
 
@@ -213,6 +224,7 @@ let build_from_clone ?ocluster ~solver (repo_clone: (string * Git.Commit.t Curre
         ~compiler_commit:commit repo_clone
     in
     let (_, compiler_gref) = Repo_url_utils.url_gref_from_url repo_url in
+    let compiler_version = gref_to_version compiler_gref in
     let compiler_commit =
       cascade_component ~build:compiler_build compiler_commit
     in
@@ -220,6 +232,8 @@ let build_from_clone ?ocluster ~solver (repo_clone: (string * Git.Commit.t Curre
       List.filter_map (fun child_repo_clone ->
         let (child_repo_url, child_commit) = child_repo_clone in
         if is_compiler_from_repo_url child_repo_url then
+          None
+        else if is_compiler_blocklisted compiler_version child_repo_url then
           None
         else
           let label = Fmt.str "%s@ (%s)" (tidy_label child_repo_url) compiler_gref in
