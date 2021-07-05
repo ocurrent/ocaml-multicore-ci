@@ -197,6 +197,18 @@ let spec_dune ~base ~opam_files ~compiler_commit ~selection =
   spec_script ~base ~opam_files ~compiler_commit ~selection ~cmds
 
 let spec_opam_install ~base ~opam_files ~compiler_commit ~selection =
+  (* Remove "vendor" opam files from the list of things that we're going
+   * to install.  This is required for irmin, which has vendored some
+   * packages that are not themselves in opam.
+   *
+   * This seems like a hack that is not generic enough to be useful for
+   * other packages, but I can't think of a better way to handle this
+   * right now.
+   *)
+  let opam_files =
+    opam_files |> List.filter (
+      fun f -> not (Astring.String.is_prefix ~affix:"vendor" f)
+  ) in
   let opam_packages =
     opam_files |> List.map Filename.chop_extension
   in

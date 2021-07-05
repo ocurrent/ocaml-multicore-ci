@@ -125,6 +125,7 @@ let fixed_repos = [
   "https://github.com/janestreet/base@v0.14.1";
   "https://github.com/janestreet/core@v0.14.1";
   "https://github.com/janestreet/core_kernel@v0.14.1";
+  "https://github.com/mirage/irmin@2.7";
   "https://github.com/ocaml-batteries-team/batteries-included@v3.3.0";
   "https://github.com/ocaml-multicore/ocaml-multicore@4.12+domains";
   "https://github.com/ocaml-multicore/ocaml-multicore@4.12+domains+effects";
