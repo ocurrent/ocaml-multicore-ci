@@ -3,6 +3,11 @@ let opam_ext_re = Str.regexp "\\.opam$"
 let host_network = ["host"]
 let opam_download_cache = [ Obuilder_spec.Cache.v "opam-archives" ~target:"/home/opam/.opam/download-cache" ]
 
+let run fmt =
+  let network = host_network in
+  let cache = opam_download_cache in
+  Obuilder_spec.run ~network ~cache fmt
+
 let compiler_switch_name_from_commit commit =
   let s_hash =
     Current_git.Commit_id.hash commit |> Astring.String.with_range ~len:8
@@ -38,11 +43,11 @@ let mkdir dirs =
     |> List.map (fun (dir, _, _) -> Filename.quote (Fpath.to_string dir))
     |> String.concat " "
   in
-  [Obuilder_spec.run "mkdir -p %s" dirs]
+  [run "mkdir -p %s" dirs]
 
 (* Generate instructions to copy all the files in [items] into the
    image, creating the necessary directories first, and then pin them all. *)
-let pin_opam_files ~network groups =
+let pin_opam_files groups =
   if groups = [] then
     []
   else
@@ -59,7 +64,7 @@ let pin_opam_files ~network groups =
             )
         )
       |> String.concat " && \n"
-      |> run ~network "%s"
+      |> run "%s"
     ]
     in
     comment "Pin project opam files" :: workdir "/src" :: cmds
@@ -74,28 +79,25 @@ let install_deps ~groups ~selection =
   let { Selection.packages; _ } = selection in
   let root_pkgs = get_root_opam_packages groups in
   let non_root_pkgs = packages |> List.filter (fun pkg -> not (List.mem pkg root_pkgs)) in
-  let network = host_network in
-  let cache = opam_download_cache in
   let open Obuilder_spec in
   let non_root_pkgs_str = String.concat " " non_root_pkgs in
   let root_pkgs_str = String.concat " " root_pkgs in
   let install_cmds = match non_root_pkgs with
   | [] ->
     [
-      run ~network ~cache "opam depext --update -y %s" root_pkgs_str
+      run "opam depext --update -y %s" root_pkgs_str
     ]
   | _ ->
     [
       env "DEPS" non_root_pkgs_str;
-      run ~network ~cache "opam depext --update -y %s $DEPS" root_pkgs_str;
-      run ~network ~cache "opam install $DEPS"
+      run "opam depext --update -y %s $DEPS" root_pkgs_str;
+      run "opam install $DEPS"
     ]
   in
   comment "Install opam deps" :: install_cmds
 
 let install_os_deps selection =
   let { Selection.variant; _ } = selection in
-  let network = host_network in
   let open Obuilder_spec in
   let linux32 = if Variant.arch variant |> Ocaml_version.arch_is_32bit then
     [shell ["/usr/bin/linux32"; "/bin/sh"; "-c"]]
@@ -103,7 +105,7 @@ let install_os_deps selection =
     []
   in
   let distro_extras = if Astring.String.is_prefix ~affix:"fedora" (Variant.id variant) then
-    [run ~network "sudo dnf install -y findutils"] (* (we need xargs) *)
+    [run "sudo dnf install -y findutils"] (* (we need xargs) *)
   else
     []
   in
@@ -115,13 +117,11 @@ let install_os_deps selection =
 
 let update_opam_repository selection =
   let { Selection.commit; _ } = selection in
-  let cache = opam_download_cache in
-  let network = host_network in
   let open Obuilder_spec in
   [
     comment "Update opam-repository";
     workdir "/home/opam/opam-repository";
-    run ~network ~cache
+    run
       "(git cat-file -e %s || git fetch origin master) && \
        git reset -q --hard %s && git log --no-decorate -n1 --oneline \
        && opam update -u" commit commit;
@@ -137,8 +137,7 @@ let copy_src =
 
 let pin_and_install_deps ~opam_files selection =
   let groups = group_opam_files opam_files in
-  let network = host_network in
-  pin_opam_files ~network groups @
+  pin_opam_files groups @
     install_deps ~groups ~selection
 
 let install_project_deps ~opam_files ~selection =
@@ -155,7 +154,6 @@ let install_compiler commit =
   ]
 
 let print_compiler_version =
-  let open Obuilder_spec in
   run "eval $(opam env) && opam switch && ocamlrun -version"
 
 let spec_helper ~body ~base ~opam_files ~compiler_commit ~selection =
@@ -179,9 +177,8 @@ let spec_helper ~body ~base ~opam_files ~compiler_commit ~selection =
   )
 
 let spec_script ~base ~opam_files ~compiler_commit ~selection ~cmds =
-  let network = host_network in
   let cmds = cmds |> List.map (fun cmd ->
-    Obuilder_spec.run ~network "opam exec -- %s" cmd
+    run "opam exec -- %s" cmd
   ) in
   let body = Obuilder_spec.comment "Run build" :: cmds in
   spec_helper ~body ~base ~opam_files ~compiler_commit ~selection
