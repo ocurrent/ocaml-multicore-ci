@@ -203,7 +203,7 @@ let spec_opam_install ~base ~opam_files ~compiler_commit ~selection =
   let pkgs_str = Fmt.(to_to_string (list ~sep:(unit " ") string) opam_packages) in
   let cmds = [
     run "opam depext --update -y %s" pkgs_str;
-    run_opam_exec (Fmt.str "opam install %s" pkgs_str)
+    run_opam_exec (Fmt.str "opam install -t %s" pkgs_str)
   ] in
   spec_script_bare ~base ~opam_files ~compiler_commit ~selection ~cmds
 
