@@ -174,12 +174,19 @@ let spec_helper ~body ~base ~opam_files ~compiler_commit ~selection =
     body
   )
 
-let spec_script ~base ~opam_files ~compiler_commit ~selection ~cmds =
-  let cmds = cmds |> List.map (fun cmd ->
-    run "opam exec -- %s" cmd
-  ) in
+let run_opam_exec cmd =
+  run "opam exec -- %s" cmd
+
+let run_all_opam_exec cmds =
+  List.map run_opam_exec cmds
+
+let spec_script_bare ~base ~opam_files ~compiler_commit ~selection ~cmds =
   let body = Obuilder_spec.comment "Run build" :: cmds in
   spec_helper ~body ~base ~opam_files ~compiler_commit ~selection
+
+let spec_script ~base ~opam_files ~compiler_commit ~selection ~cmds =
+  spec_script_bare ~base ~opam_files ~compiler_commit ~selection
+    ~cmds:(run_all_opam_exec cmds)
 
 let spec_dune ~base ~opam_files ~compiler_commit ~selection =
   let cmd = match selection.Selection.command with
@@ -193,10 +200,12 @@ let spec_opam_install ~base ~opam_files ~compiler_commit ~selection =
   let opam_packages =
     opam_files |> List.map Filename.chop_extension
   in
+  let pkgs_str = Fmt.(to_to_string (list ~sep:(unit " ") string) opam_packages) in
   let cmds = [
-    Fmt.str "opam install %a" Fmt.(list ~sep:(unit " ") string) opam_packages
+    run "opam depext --update -y %s" pkgs_str;
+    run_opam_exec (Fmt.str "opam install %s" pkgs_str)
   ] in
-  spec_script ~base ~opam_files ~compiler_commit ~selection ~cmds
+  spec_script_bare ~base ~opam_files ~compiler_commit ~selection ~cmds
 
 let spec_make ~base ~opam_files ~compiler_commit ~selection ~targets =
   let cmds = [Format.sprintf "make %s" (String.concat " " targets)] in
