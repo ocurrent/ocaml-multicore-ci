@@ -1,5 +1,7 @@
+open Obuilder_spec
+
 let host_network = ["host"]
-let opam_download_cache = [ Obuilder_spec.Cache.v "opam-archives" ~target:"/home/opam/.opam/download-cache" ]
+let opam_download_cache = [ Cache.v "opam-archives" ~target:"/home/opam/.opam/download-cache" ]
 
 let run fmt =
   let network = host_network in
@@ -49,7 +51,6 @@ let pin_opam_files groups =
   if groups = [] then
     []
   else
-    let open Obuilder_spec in
     let cmds = mkdir groups @ (
       groups |> List.map (fun (dir, files, _) ->
           copy files ~dst:(Fpath.to_string dir)
@@ -77,7 +78,6 @@ let install_deps ~groups ~selection =
   let { Selection.packages; _ } = selection in
   let root_pkgs = get_root_opam_packages groups in
   let non_root_pkgs = packages |> List.filter (fun pkg -> not (List.mem pkg root_pkgs)) in
-  let open Obuilder_spec in
   let non_root_pkgs_str = String.concat " " non_root_pkgs in
   let root_pkgs_str = String.concat " " root_pkgs in
   let install_cmds = match non_root_pkgs with
@@ -96,7 +96,6 @@ let install_deps ~groups ~selection =
 
 let install_os_deps selection =
   let { Selection.variant; _ } = selection in
-  let open Obuilder_spec in
   let linux32 = if Variant.arch variant |> Ocaml_version.arch_is_32bit then
     [shell ["/usr/bin/linux32"; "/bin/sh"; "-c"]]
   else
@@ -115,7 +114,6 @@ let install_os_deps selection =
 
 let update_opam_repository selection =
   let { Selection.commit; _ } = selection in
-  let open Obuilder_spec in
   [
     comment "Update opam-repository";
     workdir "/home/opam/opam-repository";
@@ -126,7 +124,6 @@ let update_opam_repository selection =
   ]
 
 let copy_src =
-  let open Obuilder_spec in
   [
     comment "Initialize project source";
     copy ["."] ~dst:"/src/";
@@ -145,7 +142,6 @@ let install_project_deps ~opam_files ~selection =
 
 let install_compiler commit =
   let switch_name = compiler_switch_name_from_commit commit in
-  let open Obuilder_spec in
   [
     comment "Create switch for compiler (%s)" switch_name;
     run "opam switch create %s --empty && opam repository && opam pin add -y -k path --inplace-build ocaml-variants.4.12.0+multicore . && eval $(opam env) && ocamlrun -version" switch_name
@@ -155,7 +151,6 @@ let print_compiler_version =
   run "eval $(opam env) && opam switch && ocamlrun -version"
 
 let spec_helper ~body ~base ~opam_files ~compiler_commit ~selection =
-  let open Obuilder_spec in
   stage ~from:base ([
     comment "Variant: %s" (Fmt.strf "%a" Variant.pp selection.Selection.variant);
     user ~uid:1000 ~gid:1000;
@@ -181,7 +176,7 @@ let run_all_opam_exec cmds =
   List.map run_opam_exec cmds
 
 let spec_script_bare ~base ~opam_files ~compiler_commit ~selection ~cmds =
-  let body = Obuilder_spec.comment "Run build" :: cmds in
+  let body = comment "Run build" :: cmds in
   spec_helper ~body ~base ~opam_files ~compiler_commit ~selection
 
 let spec_script ~base ~opam_files ~compiler_commit ~selection ~cmds =
