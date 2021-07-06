@@ -22,6 +22,9 @@ module State : sig
 end
 
 type job_info = {
+  owner : string;
+  name : string;
+  hash : string;
   variant : variant;
   outcome : State.t;
 }
@@ -82,4 +85,6 @@ module CI : sig
       It returns an error if ocaml-ci doesn't know about this organisation. *)
 
   val orgs : t -> (string list, [> `Capnp of Capnp_rpc.Error.t ]) Lwt_result.t
+
+  val jobs : t -> (job_info list, [> `Capnp of Capnp_rpc.Error.t ]) Lwt_result.t
 end

@@ -167,7 +167,7 @@ let link_github_refs ~owner ~name =
 
 let link_jobs ~owner ~name ~hash ?selected jobs =
   let open Tyxml.Html in
-  let render_job trees { Client.variant; outcome } =
+  let render_job trees { Client.variant; outcome; _ } =
     let uri = job_url ~owner ~name ~hash variant in
     match List.rev (String.split_on_char Common.status_sep variant) with
     | [] -> assert false

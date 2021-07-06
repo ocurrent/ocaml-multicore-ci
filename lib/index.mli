@@ -21,6 +21,10 @@ val record :
 val get_jobs : owner:string -> name:string -> string -> (string * job_state) list
 (** [get_jobs ~owner ~name commit] is the last known set of OCurrent jobs for hash [commit] in repository [owner/name]. *)
 
+val get_all_jobs : unit -> (string * string * string * string * job_state) list
+(** [get_all_jobs ()] is the last known set of OCurrent jobs.
+   The result is (owner, name, hash, variant, job_state). *)
+
 val get_job : owner:string -> name:string -> hash:string -> variant:string -> (string option, [> `No_such_variant]) result
 (** [get_job ~owner ~name ~variant] is the last known job ID for this combination. *)
 

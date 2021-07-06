@@ -9,6 +9,7 @@ type t = {
   db : Sqlite3.db;
   record_job : Sqlite3.stmt;
   remove : Sqlite3.stmt;
+  get_all_jobs : Sqlite3.stmt;
   get_jobs : Sqlite3.stmt;
   get_job : Sqlite3.stmt;
   get_job_ids : Sqlite3.stmt;
@@ -49,6 +50,9 @@ CREATE TABLE IF NOT EXISTS ci_build_index (
                                      FROM ci_build_index \
                                      LEFT JOIN cache ON ci_build_index.job_id = cache.job_id \
                                      WHERE ci_build_index.owner = ? AND ci_build_index.name = ? AND ci_build_index.hash = ?" in
+  let get_all_jobs = Sqlite3.prepare db "SELECT ci_build_index.owner, ci_build_index.name, ci_build_index.hash, ci_build_index.variant, ci_build_index.job_id, cache.ok, cache.outcome \
+                                     FROM ci_build_index \
+                                     LEFT JOIN cache ON ci_build_index.job_id = cache.job_id" in
   let get_job = Sqlite3.prepare db "SELECT job_id FROM ci_build_index \
                                      WHERE owner = ? AND name = ? AND hash = ? AND variant = ?" in
   let get_job_ids = Sqlite3.prepare db "SELECT variant, job_id FROM ci_build_index \
@@ -60,6 +64,7 @@ CREATE TABLE IF NOT EXISTS ci_build_index (
         record_job;
         remove;
         get_jobs;
+        get_all_jobs;
         get_job;
         get_job_ids;
         full_hash
@@ -140,22 +145,37 @@ let get_full_hash ~owner ~name short_hash =
     | _ :: _ :: _ -> Error `Ambiguous
   ) else Error `Invalid
 
+let row_to_job = function
+| Sqlite3.Data.[ TEXT variant; TEXT job_id; NULL; NULL ] ->
+  let outcome = if Current.Job.lookup_running job_id = None then `Aborted else `Active in
+  variant, outcome
+| Sqlite3.Data.[ TEXT variant; TEXT _; INT ok; BLOB outcome ] ->
+  let outcome =
+    if ok = 1L then `Passed else `Failed outcome in
+    variant, outcome
+| Sqlite3.Data.[ TEXT variant; NULL; NULL; NULL ] ->
+  variant, `Not_started
+| row ->
+  Fmt.failwith "row_to_job: invalid row: %a" Db.dump_row row
+
+let row_to_job_full row =
+  let open Sqlite3.Data in
+  match row with
+  | TEXT owner :: TEXT name :: TEXT hash :: rest ->
+    let (variant, outcome) = row_to_job rest in
+    (owner, name, hash, variant, outcome)
+  | row ->
+    Fmt.failwith "row_to_job_full: invalid row: %a" Db.dump_row row
+
 let get_jobs ~owner ~name hash =
   let t = Lazy.force db in
   Db.query t.get_jobs Sqlite3.Data.[ TEXT owner; TEXT name; TEXT hash ]
-  |> List.map @@ function
-  | Sqlite3.Data.[ TEXT variant; TEXT job_id; NULL; NULL ] ->
-    let outcome = if Current.Job.lookup_running job_id = None then `Aborted else `Active in
-    variant, outcome
-  | Sqlite3.Data.[ TEXT variant; TEXT _; INT ok; BLOB outcome ] ->
-    let outcome =
-      if ok = 1L then `Passed else `Failed outcome
-    in
-    variant, outcome
-  | Sqlite3.Data.[ TEXT variant; NULL; NULL; NULL ] ->
-    variant, `Not_started
-  | row ->
-    Fmt.failwith "get_jobs: invalid result: %a" Db.dump_row row
+  |> List.map row_to_job
+
+let get_all_jobs () =
+  let t = Lazy.force db in
+  Db.query t.get_all_jobs []
+  |> List.map row_to_job_full
 
 let get_job ~owner ~name ~hash ~variant =
   let t = Lazy.force db in

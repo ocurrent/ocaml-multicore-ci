@@ -34,9 +34,21 @@ module Build_status = struct
 end
 
 type job_info = {
+  owner : string;
+  name : string;
+  hash : string;
   variant : variant;
   outcome : State.t;
 }
+
+let raw_job_to_job_info job =
+  let owner = Raw.Reader.JobInfo.owner_get job in
+  let name = Raw.Reader.JobInfo.name_get job in
+  let hash = Raw.Reader.JobInfo.hash_get job in
+  let variant = Raw.Reader.JobInfo.variant_get job in
+  let state = Raw.Reader.JobInfo.state_get job in
+  let outcome = Raw.Reader.JobInfo.State.get state in
+  { owner; name; hash; variant; outcome }
 
 module CI = struct
   type t = Raw.Client.CI.t Capability.t
@@ -52,6 +64,13 @@ module CI = struct
     let request = Capability.Request.create_no_args () in
     Capability.call_for_value t method_id request
     |> Lwt_result.map Results.orgs_get_list
+
+  let jobs t =
+    let open Raw.Client.CI.Jobs in
+    let request = Capability.Request.create_no_args () in
+    Capability.call_for_value t method_id request
+    |> Lwt_result.map @@ fun jobs ->
+    Results.jobs_get_list jobs |> List.map raw_job_to_job_info
 end
 
 module Org = struct
@@ -123,12 +142,7 @@ module Commit = struct
     let request = Capability.Request.create_no_args () in
     Capability.call_for_value t method_id request
     |> Lwt_result.map @@ fun jobs ->
-    Results.jobs_get_list jobs |> List.map (fun job ->
-        let variant = Raw.Reader.JobInfo.variant_get job in
-        let state = Raw.Reader.JobInfo.state_get job in
-        let outcome = Raw.Reader.JobInfo.State.get state in
-        { variant; outcome }
-      )
+    Results.jobs_get_list jobs |> List.map raw_job_to_job_info
 
   let refs t =
     let open Raw.Client.Commit.Refs in

@@ -6,6 +6,33 @@ module Index = Ocaml_multicore_ci.Index
 
 open Capnp_rpc_lwt
 
+let set_outcome slot outcome =
+  let state = Raw.Builder.JobInfo.state_init slot in
+  let module S = Raw.Builder.JobInfo.State in
+  match outcome with
+  | `Not_started -> S.not_started_set state
+  | `Passed -> S.passed_set state
+  | `Aborted -> S.aborted_set state
+  | `Active -> S.active_set state
+  | `Failed msg -> S.failed_set state msg
+
+let populate_jobs arr jobs =
+  jobs |> List.iteri (fun i (variant, outcome) ->
+    let slot = Capnp.Array.get arr i in
+    Raw.Builder.JobInfo.variant_set slot variant;
+    set_outcome slot outcome
+  )
+
+let populate_jobs_full arr jobs =
+  jobs |> List.iteri (fun i (owner, name, hash, variant, outcome) ->
+    let slot = Capnp.Array.get arr i in
+    Raw.Builder.JobInfo.owner_set slot owner;
+    Raw.Builder.JobInfo.name_set slot name;
+    Raw.Builder.JobInfo.hash_set slot hash;
+    Raw.Builder.JobInfo.variant_set slot variant;
+    set_outcome slot outcome
+  )
+
 let make_commit ~engine ~owner ~name hash =
   let module Commit = Raw.Service.Commit in
   Commit.local @@ object
@@ -17,18 +44,7 @@ let make_commit ~engine ~owner ~name hash =
       let jobs = Index.get_jobs ~owner ~name hash in
       let response, results = Service.Response.create Results.init_pointer in
       let arr = Results.jobs_init results (List.length jobs) in
-      jobs |> List.iteri (fun i (variant, outcome) ->
-          let slot = Capnp.Array.get arr i in
-          Raw.Builder.JobInfo.variant_set slot variant;
-          let state = Raw.Builder.JobInfo.state_init slot in
-          let module S = Raw.Builder.JobInfo.State in
-          match outcome with
-          | `Not_started -> S.not_started_set state
-          | `Passed -> S.passed_set state
-          | `Aborted -> S.aborted_set state
-          | `Active -> S.active_set state
-          | `Failed msg -> S.failed_set state msg
-        );
+      populate_jobs arr jobs;
       Service.return response
 
     method job_of_variant_impl params release_param_caps =
@@ -235,5 +251,14 @@ let make_ci ~engine =
       let response, results = Service.Response.create Results.init_pointer in
       let owners = Index.get_active_owners () |> Index.Owner_set.elements in
       Results.orgs_set_list results owners |> ignore;
+      Service.return response
+
+    method jobs_impl _params release_param_caps =
+      let open CI.Jobs in
+      release_param_caps ();
+      let jobs = Index.get_all_jobs () in
+      let response, results = Service.Response.create Results.init_pointer in
+      let arr = Results.jobs_init results (List.length jobs) in
+      populate_jobs_full arr jobs;
       Service.return response
   end

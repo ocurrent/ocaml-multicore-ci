@@ -34,6 +34,9 @@ struct JobInfo {
     # that the server crashed while building, and when it came back up we
     # no longer wanted to test that commit anyway.
   }
+  owner @6 :Text;
+  name @7 :Text;
+  hash @8 :Text;
 }
 
 interface Commit {
@@ -80,6 +83,9 @@ interface CI {
 
   orgs         @1 () -> (orgs :List(Text));
   # Get the list of organisations for this CI capability.
+
+  jobs         @2 () -> (jobs :List(JobInfo));
+  # Get the list of active jobs.
 }
 
 interface Log {

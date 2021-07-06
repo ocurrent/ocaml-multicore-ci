@@ -85,7 +85,7 @@ let list_refs repo =
   else
     Client.Ref_map.iter (fun gref (hash, status) -> Fmt.pr "%s %s (%a)@." hash gref Client.Build_status.pp status) refs
 
-let pp_job f { Client.variant; outcome } =
+let pp_job f { Client.variant; outcome; _ } =
   Fmt.pf f "%s (%a)" variant Client.State.pp outcome
 
 let list_variants commit =
