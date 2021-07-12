@@ -25,6 +25,7 @@ type job_info = {
   owner : string;
   name : string;
   hash : string;
+  job_id : string;
   variant : variant;
   outcome : State.t;
 }

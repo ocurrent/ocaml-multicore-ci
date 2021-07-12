@@ -148,13 +148,13 @@ let get_full_hash ~owner ~name short_hash =
 let row_to_job = function
 | Sqlite3.Data.[ TEXT variant; TEXT job_id; NULL; NULL ] ->
   let outcome = if Current.Job.lookup_running job_id = None then `Aborted else `Active in
-  variant, outcome
-| Sqlite3.Data.[ TEXT variant; TEXT _; INT ok; BLOB outcome ] ->
+  job_id, variant, outcome
+| Sqlite3.Data.[ TEXT variant; TEXT job_id; INT ok; BLOB outcome ] ->
   let outcome =
     if ok = 1L then `Passed else `Failed outcome in
-    variant, outcome
+    job_id, variant, outcome
 | Sqlite3.Data.[ TEXT variant; NULL; NULL; NULL ] ->
-  variant, `Not_started
+  "", variant, `Not_started
 | row ->
   Fmt.failwith "row_to_job: invalid row: %a" Db.dump_row row
 
@@ -162,15 +162,15 @@ let row_to_job_full row =
   let open Sqlite3.Data in
   match row with
   | TEXT owner :: TEXT name :: TEXT hash :: rest ->
-    let (variant, outcome) = row_to_job rest in
-    (owner, name, hash, variant, outcome)
+    let (job_id, variant, outcome) = row_to_job rest in
+    (owner, name, hash, job_id, variant, outcome)
   | row ->
     Fmt.failwith "row_to_job_full: invalid row: %a" Db.dump_row row
 
 let get_jobs ~owner ~name hash =
   let t = Lazy.force db in
   Db.query t.get_jobs Sqlite3.Data.[ TEXT owner; TEXT name; TEXT hash ]
-  |> List.map row_to_job
+  |> List.map row_to_job |> List.map (fun (_, variant, outcome) -> (variant, outcome))
 
 let get_all_jobs () =
   let t = Lazy.force db in

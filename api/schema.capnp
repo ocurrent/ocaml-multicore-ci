@@ -37,6 +37,7 @@ struct JobInfo {
   owner @6 :Text;
   name @7 :Text;
   hash @8 :Text;
+  jobId @9 :Text;
 }
 
 interface Commit {

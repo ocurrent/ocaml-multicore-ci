@@ -37,6 +37,7 @@ type job_info = {
   owner : string;
   name : string;
   hash : string;
+  job_id : string;
   variant : variant;
   outcome : State.t;
 }
@@ -45,10 +46,11 @@ let raw_job_to_job_info job =
   let owner = Raw.Reader.JobInfo.owner_get job in
   let name = Raw.Reader.JobInfo.name_get job in
   let hash = Raw.Reader.JobInfo.hash_get job in
+  let job_id = Raw.Reader.JobInfo.job_id_get job in
   let variant = Raw.Reader.JobInfo.variant_get job in
   let state = Raw.Reader.JobInfo.state_get job in
   let outcome = Raw.Reader.JobInfo.State.get state in
-  { owner; name; hash; variant; outcome }
+  { owner; name; hash; job_id; variant; outcome }
 
 module CI = struct
   type t = Raw.Client.CI.t Capability.t

@@ -40,6 +40,7 @@ module Job_info = struct
     owner : string;
     name : string;
     hash : string;
+    job_id : string;
     variant : string;
     outcome : job_state;
     error : string option;
@@ -74,7 +75,7 @@ let list_jobs commit : (Job_info.t list, string) Lwt_result.t =
        let orig_outcome = job.Client.outcome in
        let outcome = convert_job_state orig_outcome in
        let error = error_of_job_state orig_outcome in
-       {Job_info.owner=""; name=""; hash=""; variant=job.Client.variant; outcome; error }
+       {Job_info.owner=""; name=""; hash=""; job_id=""; variant=job.Client.variant; outcome; error }
     )
 
 let list_all_jobs ci : (Job_info.t list, string) Lwt_result.t =
@@ -84,7 +85,7 @@ let list_all_jobs ci : (Job_info.t list, string) Lwt_result.t =
        let orig_outcome = job.Client.outcome in
        let outcome = convert_job_state orig_outcome in
        let error = error_of_job_state orig_outcome in
-       {Job_info.owner=job.Client.owner; name=job.Client.name; hash=job.Client.hash; variant=job.Client.variant; outcome; error }
+       {Job_info.owner=job.Client.owner; name=job.Client.name; hash=job.Client.hash; job_id=job.Client.job_id; variant=job.Client.variant; outcome; error }
     )
 
 let list_refs repo : (Ref_info.t list, string) Lwt_result.t =
@@ -145,6 +146,10 @@ let job_info = Schema.(obj "job_info" ~fields:(fun _ -> [
     ~args:Arg.[]
     ~typ:(non_null string)
     ~resolve:(fun _ p -> p.Job_info.hash);
+  field "job_id"
+    ~args:Arg.[]
+    ~typ:(non_null string)
+    ~resolve:(fun _ p -> p.Job_info.job_id);
   field "variant"
     ~args:Arg.[]
     ~typ:(non_null string)

@@ -24,11 +24,12 @@ let populate_jobs arr jobs =
   )
 
 let populate_jobs_full arr jobs =
-  jobs |> List.iteri (fun i (owner, name, hash, variant, outcome) ->
+  jobs |> List.iteri (fun i (owner, name, hash, job_id, variant, outcome) ->
     let slot = Capnp.Array.get arr i in
     Raw.Builder.JobInfo.owner_set slot owner;
     Raw.Builder.JobInfo.name_set slot name;
     Raw.Builder.JobInfo.hash_set slot hash;
+    Raw.Builder.JobInfo.job_id_set slot job_id;
     Raw.Builder.JobInfo.variant_set slot variant;
     set_outcome slot outcome
   )
