@@ -1,7 +1,11 @@
 open Belt
 
 type option = {name: string, href: string}
-let options = [{name: "Home", href: "/"}, {name: "Jobs", href: "/jobs"}]
+let options = [
+  {name: "Home", href: "/"},
+  {name: "Jobs", href: "/jobs"},
+  {name: "GitHub", href: "/github"},
+]
 
 module MenuButton = {
   @react.component

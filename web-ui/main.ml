@@ -49,21 +49,19 @@ let handle_request ~backend ~graphql_callback conn request body =
         return @@ `Response(resp_with_cors, body)
       | resp -> return resp
     )
-  | `GET, ([] | "jobs" :: _ | "results" :: _) ->
-    let index_uri = Uri.with_uri ~path:(Some "/index.html") uri in
-    let fname = Server.resolve_local_file ~docroot ~uri:index_uri in
-    Server.respond_file ~headers:response_headers ~fname () |> normal_response
   | `GET, (["index.html"] | ("images" :: _) | ("static" :: _)) ->
     let fname = Server.resolve_local_file ~docroot ~uri in
     Server.respond_file ~fname ~headers:response_headers () |> normal_response
   | `GET, ["css"; "style.css"] ->
     Style.get () |> normal_response
-  | meth, ("github" :: path) ->
+  | meth, ("github" :: path) when path != [] ->
     Github.handle ~backend ~meth path
   | `GET, ("badge" :: path) ->
      Badges.handle ~backend ~path
   | _ ->
-    Server.respond_not_found () |> normal_response
+    let index_uri = Uri.with_uri ~path:(Some "/index.html") uri in
+    let fname = Server.resolve_local_file ~docroot ~uri:index_uri in
+    Server.respond_file ~headers:response_headers ~fname () |> normal_response
 
 let pp_mode f mode =
   Sexplib.Sexp.pp_hum f (Conduit_lwt_unix.sexp_of_server mode)

@@ -10,8 +10,21 @@ body {
   padding: 58px 0 0 0;
 }
 
-h2 {
+h1 {
+  font-size: 32px;
   font-weight: 500;
+  margin-bottom: 1.5rem;
+}
+
+h1:not(:first-child) {
+  margin-top: 1.5rem;
+}
+
+h2 {
+  font-size: 28px;
+  font-weight: 500;
+  margin-top: 1.5rem;
+  margin-bottom: 1.25rem;
 }
 
 a {
@@ -316,4 +329,12 @@ ul.query-form li input {
 
 .settings-form select {
   margin-right: 1em;
+}
+
+ul.org-list li:last-child {
+  margin-bottom: 1ex;
+}
+
+ul.org-list ul {
+  margin-left: 1em;
 }

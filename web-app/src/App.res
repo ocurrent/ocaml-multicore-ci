@@ -4,6 +4,7 @@ let make = () => {
   <>
     <Header />
     {switch url.path {
+    | list{"github"} => <GitHubView />
     | list{"jobs"} => <JobsView />
     | list{} => <GridView />
     | _ => React.null
