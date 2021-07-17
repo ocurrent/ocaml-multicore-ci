@@ -2,40 +2,38 @@ open Belt
 open ReScriptUrql
 
 module GetAllJobs = %graphql(`
-{ orgs {name, repos {name, master_status, refs {gref, hash, status, jobs { variant, outcome, error } } } } }
+{ jobs { owner, name, hash, job_id, variant, outcome, error } }
 `)
-external outcome_to_string: GetAllJobs.t_orgs_repos_refs_jobs_outcome => string = "%identity"
+external outcome_to_string: GetAllJobs.t_jobs_outcome => string = "%identity"
 
 module JobRow = {
   @react.component
   let make = (
-    ~org_name: string,
-    ~repo_name: string,
-    ~build_ref: GetAllJobs.t_orgs_repos_refs,
+    ~repo: string,
+    ~jobs: HashMap.String.t<GetAllJobs.t_jobs>,
     ~variants: array<string>,
   ) => {
-    let outcome_by_variant = Belt_HashMapString.make(~hintSize=10)
-    Array.forEach(build_ref.jobs, job =>
-      Belt_HashMapString.set(outcome_by_variant, job.variant, (job.outcome, job.error))
-    )
+    let adminServiceUri = ConfigHooks.useAdminServiceUri()
+
     <tr>
-      <td> {React.string(repo_name)} </td>
+      <td> {repo->React.string} </td>
       {React.array(
         Array.map(variants, variant => {
-          let onClick = ev => {
-            ev->ReactEvent.Synthetic.stopPropagation
-            ev->ReactEvent.Synthetic.preventDefault
-            let href = `http://localhost:8090/github/${org_name}/${repo_name}/commit/${build_ref.hash}/variant/${variant}`
-            Window_utils.windowOpen(href)
-          }
+          switch HashMap.String.get(jobs, variant) {
+          | None => <td key={variant}> {"\xa0"->React.string} </td>
+          | Some(job) => {
+              let onClick = ev => {
+                ev->ReactEvent.Synthetic.stopPropagation
+                ev->ReactEvent.Synthetic.preventDefault
+                let href = `${adminServiceUri}/job/${job.job_id}`
+                Window_utils.windowOpen(href)
+              }
 
-          <td key={variant} className="cursor-pointer" onClick>
-            {switch Belt_HashMapString.get(outcome_by_variant, variant) {
-            | Some((outcome, err)) =>
-              <OutcomeDisplay outcome={outcome_to_string(outcome)} err={err} />
-            | None => React.string("-")
-            }}
-          </td>
+              <td key={variant} className="clickable" onClick>
+                <OutcomeDisplay outcome={outcome_to_string(job.outcome)} err={job.error} />
+              </td>
+            }
+          }
         }),
       )}
     </tr>
@@ -43,23 +41,44 @@ module JobRow = {
 }
 
 module Content = {
-  @react.component
-  let make = (~orgs: array<GetAllJobs.t_orgs>) => {
-    let all_variants = Belt_HashSetString.make(~hintSize=10)
-    Array.forEach(orgs, org =>
-      Array.forEach(org.repos, repo => {
-        Array.forEach(repo.refs, build_ref =>
-          Array.forEach(build_ref.jobs, job =>
-            if job.variant != "(analysis)" {
-              Belt_HashSetString.add(all_variants, job.variant)
-            }
+  let make_jobs_by_repo = (jobs: array<GetAllJobs.t_jobs>) => {
+    let result = HashMap.String.make(~hintSize=10)
+    Array.forEach(jobs, job =>
+      if (
+        job.variant != "(analysis)" &&
+          !Js.Array2.includes(
+            ["Aborted", "NotStarted", "Undefined"],
+            outcome_to_string(job.outcome),
           )
-        )
-      })
+      ) {
+        let repo = `${job.owner}/${job.name}`
+        let d = switch HashMap.String.get(result, repo) {
+        | None => HashMap.String.make(~hintSize=10)
+        | Some(h) => h
+        }
+        HashMap.String.set(d, job.variant, job)
+        HashMap.String.set(result, repo, d)
+      }
     )
-    let variants = all_variants->Belt_HashSetString.toArray->Js.Array.sortInPlace
+    result
+  }
 
-    <table className="table">
+  let make_variants = (jobs: array<GetAllJobs.t_jobs>) => {
+    let result = HashSet.String.make(~hintSize=10)
+    Array.forEach(jobs, job =>
+      if job.variant != "(analysis)" {
+        HashSet.String.add(result, job.variant)
+      }
+    )
+    result->HashSet.String.toArray->Js.Array.sortInPlace
+  }
+
+  @react.component
+  let make = (~jobs: array<GetAllJobs.t_jobs>) => {
+    let variants = make_variants(jobs)
+    let jobs_by_repo = make_jobs_by_repo(jobs)
+
+    <table className="table cell-select">
       <thead>
         <tr>
           <th> {"Repo"->React.string} </th>
@@ -69,21 +88,10 @@ module Content = {
         </tr>
       </thead>
       <tbody>
-        {Array.map(orgs, org =>
-          Array.map(org.repos, repo =>
-            Array.map(repo.refs, build_ref =>
-              <JobRow
-                key={repo.name ++ build_ref.hash}
-                org_name=org.name
-                repo_name=repo.name
-                build_ref
-                variants
-              />
-            )
-          )
-        )
-        ->Array.concatMany
-        ->Array.concatMany
+        {jobs_by_repo
+        ->HashMap.String.toArray
+        ->Js.Array2.sortInPlaceWith(((repoA, _), (repoB, _)) => String.compare(repoA, repoB))
+        ->Array.map(((repo, jobs)) => <JobRow key={repo} repo jobs variants />)
         ->React.array}
       </tbody>
     </table>
@@ -106,7 +114,7 @@ let make = () => {
       | Empty => "Not Found"->React.string
       | Data(data)
       | PartialData(data, _) =>
-        <Content orgs={data.orgs} />
+        <Content jobs={data.jobs} />
       }}
     </div>
   </main>

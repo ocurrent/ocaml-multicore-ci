@@ -210,9 +210,10 @@ table.cell-select tbody td {
   transition: background 200ms, color 200ms;
 }
 
-table.cell-select tbody td:hover {
+table.cell-select tbody td.clickable:hover {
   background: rgb(236,125,11);
   color: white;
+  cursor: pointer;
 }
 
 table.table td {
