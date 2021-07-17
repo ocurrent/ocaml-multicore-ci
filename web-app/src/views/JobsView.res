@@ -36,7 +36,7 @@ module Content = {
     Js.Array.sortInPlaceWith((j1: GetAllJobs.t_jobs, j2: GetAllJobs.t_jobs) => {
       -String.compare(j1.job_id, j2.job_id)
     }, jobs)->ignore
-    <table className="table">
+    <table className="table row-select">
       <thead>
         <tr>
           <th> {"Job ID"->React.string} </th>

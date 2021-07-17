@@ -7,7 +7,7 @@ body {
   background: white;
   color: #002000;
   margin: 0;
-  padding: 0;
+  padding: 58px 0 0 0;
 }
 
 h2 {
@@ -53,21 +53,38 @@ select {
 }
 
 nav {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 58px;
+  z-index: 10;
+  margin: 0;
+  padding: 0 6px;
   display: flex;
   justify-content: flex-start;
   align-items: center;
-  margin: 0;
-  padding: 0;
-  background: #202020;
-  color: #ddd;
-  overflow: hidden;
+  background: white;
+  color: #404040;
   user-select: none;
+}
+
+nav::after {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: 100%;
+  z-index: -1;
+  content: "";
+  box-shadow: 0 8px 20px -9px rgba(0, 0, 0, 0.25);
+  pointer-events: none;
 }
 
 nav img {
   margin: 8px;
   object-fit: contain;
-  height: 29px;
+  height: 32px;
 }
 
 nav .site-name {
@@ -102,7 +119,7 @@ nav ul.right form {
 }
 
 nav ul.right button {
-  background: #202020;
+  background: white;
   border: none;
   color: #ddd;
   text-decoration: none;
@@ -111,13 +128,13 @@ nav ul.right button {
 }
 
 nav ul.right button:hover {
-  color: white;
+  color: #404040;
   background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0) 50%, rgba(236,125,11,0.9) 51%, rgba(229,83,14,0.9) 100%);
 }
 
 nav a.nav-menu-option {
   display: block;
-  color: #ddd;
+  color: #404040;
   text-decoration: none;
   padding: 2ex 0.75em;
   cursor: pointer;
@@ -127,11 +144,11 @@ nav a.nav-menu-option {
 }
 
 nav a.nav-menu-option:visited {
-  color: #ddd;
+  color: #404040;
 }
 
 nav a.nav-menu-option:hover, nav a.nav-menu-option:active {
-  color: white;
+  color: black;
   background-position-y: -8px;
 }
 
@@ -153,14 +170,14 @@ table.table {
   padding: 0;
   margin: 1ex 0 3ex 0;
   border-collapse: collapse;
-  border: 2px solid transparent;
+  border: 1px solid #404040;
   border-radius: 8px;
   overflow: hidden;
+  font-size: 0.9em;
 }
 
 table.table thead {
-  background: rgb(229,103,14);
-  background: linear-gradient(172deg, rgba(236,125,11,0.9) 0%, rgba(229,83,14,0.9) 100%);
+  background: #404040;
   color: white;
 }
 
@@ -177,12 +194,25 @@ table.table th {
 }
 
 table.table tbody tr {
-  border-bottom: white 2px solid;
-  transition: background 300ms;
+  transition: background 200ms, color 200ms;
 }
 
-table.table tbody tr:hover {
-  background: #f0f0f0;
+table.row-select tbody tr:hover {
+  background: rgb(236,125,11);
+  color: white;
+}
+
+table.cell-select tbody tr:hover {
+  background: rgba(236,125,11, 0.3);
+}
+
+table.cell-select tbody td {
+  transition: background 200ms, color 200ms;
+}
+
+table.cell-select tbody td:hover {
+  background: rgb(236,125,11);
+  color: white;
 }
 
 table.table td {
@@ -202,7 +232,7 @@ table.table tr td {
 }
 
 table.table tr:nth-child(even) {
-  background-color: gainsboro;
+  background-color: #efefef;
 }
 
 form {
