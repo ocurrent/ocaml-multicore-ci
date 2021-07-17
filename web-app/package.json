@@ -26,7 +26,8 @@
     "clean": "bsb -clean-world",
     "start:re": "bsb -make-world -w",
     "start:cra": "craco start",
-    "prebuild": "bsb -clean-world -make-world"
+    "prebuild": "bsb -clean-world -make-world",
+    "get-schema": "yarn run -s get-graphql-schema http://localhost:8090/graphql -j >graphql_schema.json"
   },
   "eslintConfig": null,
   "browserslist": {
@@ -45,6 +46,7 @@
     "@reasonml-community/graphql-ppx": "^1.0.1",
     "autoprefixer": "^9",
     "gentype": "^3.50.0",
+    "get-graphql-schema": "^2.1.2",
     "postcss": "^7",
     "tailwindcss": "npm:@tailwindcss/postcss7-compat"
   }
