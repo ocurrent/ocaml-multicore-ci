@@ -1,8 +1,9 @@
+open Env
 open ReScriptUrql
 
 %%raw("import './assets/css/index.css';")
 
-let client = Client.make(~url="http://localhost:8090/graphql", ())
+let client = Client.make(~url=env.graphql_endpoint, ())
 
 switch ReactDOM.querySelector("#root") {
 | None => ()
