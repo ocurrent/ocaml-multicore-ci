@@ -19,9 +19,7 @@ let add_cors_headers (headers: Cohttp.Header.t): Cohttp.Header.t =
 let normal_response x =
   x >|= fun x -> `Response x
 
-let docroot = "web-app/build"
-
-let handle_request ~backend ~graphql_callback conn request body =
+let handle_request ~backend ~docroot ~graphql_callback conn request body =
   let meth = Cohttp.Request.meth request in
   let uri = Cohttp.Request.uri request in
   let path = Uri.path uri in
@@ -68,14 +66,14 @@ let pp_mode f mode =
 
 module Graphql_cohttp_lwt = Graphql_cohttp.Make (Graphql_lwt.Schema) (Cohttp_lwt_unix.IO) (Cohttp_lwt.Body)
 
-let main port backend_uri admin_service_uri prometheus_config =
+let main port backend_uri admin_service_uri docroot prometheus_config =
   Lwt_main.run begin
     let vat = Capnp_rpc_unix.client_only_vat () in
     let backend_sr = Capnp_rpc_unix.Vat.import_exn vat backend_uri in
     let backend = Backend.make backend_sr in
     let%lwt ci = Backend.ci backend in
     let graphql_callback = Graphql_cohttp_lwt.make_callback (fun _req -> ()) (Ci_graphql.schema ~admin_service_uri ci) in
-    let config = Server.make_response_action ~callback:(handle_request ~backend ~graphql_callback) () in
+    let config = Server.make_response_action ~callback:(handle_request ~backend ~docroot ~graphql_callback) () in
     let mode = `TCP (`Port port) in
     Log.info (fun f -> f "Starting web server: %a" pp_mode mode);
     let web =
@@ -117,9 +115,17 @@ let admin_service_uri =
     ~docv:"URI"
     ["admin-service-uri"]
 
+let docroot =
+  Arg.value @@
+  Arg.opt Arg.string "web-app/build" @@
+  Arg.info
+    ~doc:"The docroot for the web UI. This is used to find the built JavaScript and images etc."
+    ~docv:"PATH"
+    ["docroot"]
+
 let cmd =
   let doc = "A web front-end for Ocaml-Multicore-CI" in
-  Term.(const main $ port $ backend_cap $ admin_service_uri $ Prometheus_unix.opts),
+  Term.(const main $ port $ backend_cap $ admin_service_uri $ docroot $ Prometheus_unix.opts),
   Term.info "ocaml-multicore-ci-web" ~doc
 
 let () = Term.(exit @@ eval cmd)
