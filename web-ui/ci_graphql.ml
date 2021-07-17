@@ -11,6 +11,12 @@ type job_state =
   | Aborted
   | Undefined
 
+module Config = struct
+  type t = {
+    admin_service_uri: string;
+  }
+end
+
 module Org = struct
   type t = {
     org: Client.Org.t;
@@ -68,6 +74,9 @@ match x with
 | Undefined err -> Some (Int.to_string err)
 | _ -> None
 
+let get_config ~admin_service_uri : (Config.t, string) Lwt_result.t =
+  Lwt_result.return { Config.admin_service_uri }
+
 let list_jobs commit : (Job_info.t list, string) Lwt_result.t =
   Client.Commit.jobs commit
     |> remap_capnp_err
@@ -113,6 +122,13 @@ let list_orgs ci : (Org.t list, string) Lwt_result.t =
        let org = Client.CI.org ci name in
        { Org.name; org }
     )
+
+let config = Schema.(obj "config" ~fields:(fun _ -> [
+  field "admin_service_uri"
+    ~args:Arg.[]
+    ~typ:(non_null string)
+    ~resolve:(fun _ p -> p.Config.admin_service_uri);
+]))
 
 let build_status = Ocaml_multicore_ci_api.Raw.Reader.BuildStatus.(Schema.(enum "build_status"
   ~values:[
@@ -209,10 +225,14 @@ let org = Schema.(obj "org" ~fields:(fun _ -> [
     ~resolve:(fun _ p -> list_repos p.Org.org);
 ]))
 
-let schema ci =
+let schema ~admin_service_uri ci =
   Schema.(
     schema
       [
+        io_field "config"
+          ~args:Arg.[]
+          ~typ:(non_null config)
+          ~resolve:(fun _ () -> get_config ~admin_service_uri);
         io_field "orgs"
           ~args:Arg.[]
           ~typ:(non_null (list (non_null org)))

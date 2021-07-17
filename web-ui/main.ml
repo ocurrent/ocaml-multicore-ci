@@ -70,13 +70,13 @@ let pp_mode f mode =
 
 module Graphql_cohttp_lwt = Graphql_cohttp.Make (Graphql_lwt.Schema) (Cohttp_lwt_unix.IO) (Cohttp_lwt.Body)
 
-let main port backend_uri prometheus_config =
+let main port backend_uri admin_service_uri prometheus_config =
   Lwt_main.run begin
     let vat = Capnp_rpc_unix.client_only_vat () in
     let backend_sr = Capnp_rpc_unix.Vat.import_exn vat backend_uri in
     let backend = Backend.make backend_sr in
     let%lwt ci = Backend.ci backend in
-    let graphql_callback = Graphql_cohttp_lwt.make_callback (fun _req -> ()) (Ci_graphql.schema ci) in
+    let graphql_callback = Graphql_cohttp_lwt.make_callback (fun _req -> ()) (Ci_graphql.schema ~admin_service_uri ci) in
     let config = Server.make_response_action ~callback:(handle_request ~backend ~graphql_callback) () in
     let mode = `TCP (`Port port) in
     Log.info (fun f -> f "Starting web server: %a" pp_mode mode);
@@ -111,9 +111,17 @@ let backend_cap =
     ~docv:"CAP"
     ["backend"]
 
+let admin_service_uri =
+  Arg.value @@
+  Arg.opt Arg.string "http://localhost:8080" @@
+  Arg.info
+    ~doc:"The public endpoint for the admin UI. This is used when linking from this frontend to the admin UI."
+    ~docv:"URI"
+    ["admin-service-uri"]
+
 let cmd =
   let doc = "A web front-end for Ocaml-Multicore-CI" in
-  Term.(const main $ port $ backend_cap $ Prometheus_unix.opts),
+  Term.(const main $ port $ backend_cap $ admin_service_uri $ Prometheus_unix.opts),
   Term.info "ocaml-multicore-ci-web" ~doc
 
 let () = Term.(exit @@ eval cmd)

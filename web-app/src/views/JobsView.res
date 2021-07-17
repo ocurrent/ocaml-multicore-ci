@@ -9,10 +9,12 @@ external outcome_to_string: GetAllJobs.t_jobs_outcome => string = "%identity"
 module JobRow = {
   @react.component
   let make = (~job: GetAllJobs.t_jobs) => {
+    let adminServiceUri = ConfigHooks.useAdminServiceUri()
+
     let onClick = ev => {
       ev->ReactEvent.Synthetic.stopPropagation
       ev->ReactEvent.Synthetic.preventDefault
-      let href = `http://localhost:8090/job/${job.job_id}`
+      let href = `${adminServiceUri}/job/${job.job_id}`
       Window_utils.windowOpen(href)
     }
 
