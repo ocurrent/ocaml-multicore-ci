@@ -21,10 +21,12 @@
   "suffix": ".bs.js",
   "namespace": true,
   "bs-dependencies": [
-    "@rescript/react",
-    "@urql/rescript",
+    "rescript-material-ui",
     "wonka",
-    "@reasonml-community/graphql-ppx"
+    "@ggteven/rescript-dayjs",
+    "@reasonml-community/graphql-ppx",
+    "@rescript/react",
+    "@urql/rescript"
   ],
   "ppx-flags": ["@reasonml-community/graphql-ppx/ppx"]
 }

@@ -1,5 +1,7 @@
 @react.component
 let make = () => {
+  Dayjs_utils.init()
+
   let url = RescriptReactRouter.useUrl()
   <>
     <Header />

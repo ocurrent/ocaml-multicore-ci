@@ -338,3 +338,17 @@ ul.org-list li:last-child {
 ul.org-list ul {
   margin-left: 1em;
 }
+
+.refreshBar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  width: 100%;
+  margin-bottom: 3ex;
+}
+
+.refreshBar div:first-child {
+  margin-right: auto;
+  width: fit-content;
+  font-size: 0.85em;
+}

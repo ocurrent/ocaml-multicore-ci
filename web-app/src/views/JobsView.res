@@ -1,5 +1,4 @@
 open Belt
-open ReScriptUrql
 
 module GetAllJobs = %graphql(`
 { jobs { owner, name, hash, job_id, variant, outcome, error } }
@@ -59,14 +58,11 @@ module Content = {
 
 @react.component
 let make = () => {
-  let ({Hooks.response: response}, _) = Hooks.useQuery(
-    ~query=module(GetAllJobs),
-    ~requestPolicy=#CacheFirst,
-    (),
-  )
+  let (response, bar) = RefreshBarWithQuery.useWithQuery(module(GetAllJobs))
 
   <main>
     <div className="p-8">
+      {bar}
       {switch response {
       | Fetching => "Loading"->React.string
       | Error(e) => e.message->React.string
