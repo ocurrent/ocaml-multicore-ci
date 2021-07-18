@@ -11,7 +11,7 @@
  (depends
   current_rpc
   (capnp (>= 3.4.0))
-  capnp-rpc-lwt
+  (capnp-rpc-lwt (>= 1.2))
   ppx_deriving
   ppx_deriving_yojson))
 (package
@@ -33,7 +33,7 @@
   current_web
   current_rpc
   current_ocluster
-  (capnp-rpc-unix (>= 0.7.0))
+  (capnp-rpc-unix (>= 1.2))
   ocaml-multicore-ci-api
   ocaml-multicore-ci-solver
   ocluster-api
@@ -58,7 +58,7 @@
   conf-libev
   (opam-0install (>= "0.2"))
   (git-unix (>= 3.2.0))
-  (capnp-rpc-unix (>= 0.7.0))))
+  (capnp-rpc-unix (>= 1.2))))
 (package
  (name ocaml-multicore-ci-web)
  (synopsis "Web-server frontend for ocaml-multicore-ci")
@@ -75,7 +75,7 @@
   lwt_ppx
   (cohttp-lwt-unix (>= 2.2.0))
   tyxml
-  capnp-rpc-unix
+  (capnp-rpc-unix (>= 1.2))
   ocaml-multicore-ci-api
   graphql
   graphql-cohttp
@@ -89,6 +89,6 @@
   (logs (>= 0.7.0))
   (fmt (>= 0.8.9))
   current_rpc
-  capnp-rpc-unix
+  (capnp-rpc-unix (>= 1.2))
   ocaml-multicore-ci-api
   dockerfile))

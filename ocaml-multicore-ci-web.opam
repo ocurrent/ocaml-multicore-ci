@@ -18,7 +18,7 @@ depends: [
   "lwt_ppx"
   "cohttp-lwt-unix" {>= "2.2.0"}
   "tyxml"
-  "capnp-rpc-unix"
+  "capnp-rpc-unix" {>= "1.2"}
   "ocaml-multicore-ci-api"
   "graphql"
   "graphql-cohttp"

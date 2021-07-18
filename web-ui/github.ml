@@ -280,7 +280,7 @@ let repo_handle ~meth ~owner ~name ~repo path =
     Capability.with_ref (Client.Repo.commit_of_hash repo hash) @@ fun commit ->
     Capability.with_ref (Client.Commit.job_of_variant commit variant) @@ fun job ->
     Capability.with_ref (Current_rpc.Job.rebuild job) @@ fun new_job ->
-    Capability.wait_until_settled new_job >>= fun () ->
+    Capability.await_settled_exn new_job >>= fun () ->
     begin match Capability.problem new_job with
       | None ->
         let uri = job_url ~owner ~name ~hash variant |> Uri.of_string in
