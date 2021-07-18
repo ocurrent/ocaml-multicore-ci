@@ -1,4 +1,5 @@
 open Belt
+open MaterialUi
 
 module GetAllJobs = %graphql(`
 { jobs { owner, name, hash, job_id, variant, outcome, error } }
@@ -40,15 +41,16 @@ module JobRow = {
 }
 
 module Content = {
-  let make_jobs_by_repo = (jobs: array<GetAllJobs.t_jobs>) => {
+  let make_jobs_by_repo = (~isIgnoreActive: bool, jobs: array<GetAllJobs.t_jobs>) => {
+    let ignoredStates = ["Aborted", "NotStarted", "Undefined"]
+    if isIgnoreActive {
+      ignoredStates->Js.Array2.push("Active")->ignore
+    }
     let result = HashMap.String.make(~hintSize=10)
     Array.forEach(jobs, job =>
       if (
         job.variant != "(analysis)" &&
-          !Js.Array2.includes(
-            ["Aborted", "NotStarted", "Undefined"],
-            outcome_to_string(job.outcome),
-          )
+          !Js.Array2.includes(ignoredStates, outcome_to_string(job.outcome))
       ) {
         let repo = `${job.owner}/${job.name}`
         let d = switch HashMap.String.get(result, repo) {
@@ -73,9 +75,9 @@ module Content = {
   }
 
   @react.component
-  let make = (~jobs: array<GetAllJobs.t_jobs>) => {
+  let make = (~jobs: array<GetAllJobs.t_jobs>, ~isIgnoreActive: bool) => {
     let variants = make_variants(jobs)
-    let jobs_by_repo = make_jobs_by_repo(jobs)
+    let jobs_by_repo = make_jobs_by_repo(~isIgnoreActive, jobs)
 
     <table className="table cell-select">
       <thead>
@@ -99,18 +101,32 @@ module Content = {
 
 @react.component
 let make = () => {
+  let url = RescriptReactRouter.useUrl()
+  let search = URLSearchParams.make(url.search)
+  let isIgnoreActive = search->URLSearchParams.getBoolean("ignore-active")
   let (response, bar) = RefreshBarWithQuery.useWithQuery(module(GetAllJobs))
+
+  let onChangeIgnoreActive = _ => {
+    search->URLSearchParams.setBoolean("ignore-active", !isIgnoreActive)
+    URL.join(url.path, search)->RescriptReactRouter.replace
+  }
 
   <main>
     <div className="p-8 flex-col">
       {bar}
+      <div className="flex-row">
+        <FormControlLabel
+          control={<Checkbox checked={isIgnoreActive} onChange={onChangeIgnoreActive} />}
+          label={"Ignore active jobs"->React.string}
+        />
+      </div>
       {switch response {
       | Fetching => "Loading"->React.string
       | Error(e) => e.message->React.string
       | Empty => "Not Found"->React.string
       | Data(data)
       | PartialData(data, _) =>
-        <Content jobs={data.jobs} />
+        <Content jobs={data.jobs} isIgnoreActive />
       }}
     </div>
   </main>

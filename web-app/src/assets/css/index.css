@@ -352,3 +352,7 @@ ul.org-list ul {
   width: fit-content;
   font-size: 0.85em;
 }
+
+.MuiFormControlLabel-label {
+  user-select: none;
+}
