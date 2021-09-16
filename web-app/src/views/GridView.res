@@ -76,6 +76,10 @@ module Content = {
 
   @react.component
   let make = (~jobs: array<GetAllJobs.t_jobs>, ~isIgnoreActive: bool) => {
+    let jobs = Js.Array.filter(
+      (job: GetAllJobs.t_jobs) => String.compare(job.job_id, "2021-06-01") > 0,
+      jobs,
+    )
     let variants = make_variants(jobs)
     let jobs_by_repo = make_jobs_by_repo(~isIgnoreActive, jobs)
 
