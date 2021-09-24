@@ -204,6 +204,8 @@ let build_with_compiler ?ocluster ~solver ~compiler_commit ?label commit =
 
 let build_from_clone ?ocluster ~solver (repo_clone: (string * Git.Commit.t Current.t)) =
   let (repo_url, commit) = repo_clone in
+  if is_compiler_from_repo_url repo_url
+  then
     let (compiler_commit, compiler_build) =
       build_from_clone_with_compiler ?ocluster ~solver
         ~compiler_commit:commit repo_clone
@@ -229,18 +231,18 @@ let build_from_clone ?ocluster ~solver (repo_clone: (string * Git.Commit.t Curre
       )
     in
     Current.all downstream_builds
+  else
+    let (_, build) =
+      build_from_clone_with_compiler ?ocluster ~solver repo_clone
+    in
+    Current.ignore_value build
 
 let v ?ocluster ~solver () =
   let ocluster = Option.map (Cluster_build.config ~timeout:(Duration.of_hour 1)) ocluster in
   Current.with_context opam_repository_commits @@ fun () ->
   Current.with_context platforms @@ fun () ->
   let build_fixed =
-    clone_fixed_repos () |>
-      List.filter (fun repo_clone ->
-        let (repo_url, _) = repo_clone in
-        is_compiler_from_repo_url repo_url
-      ) |>
-      List.map (build_from_clone ?ocluster ~solver)
+    clone_fixed_repos () |> List.map (build_from_clone ?ocluster ~solver)
   in
   Current.all build_fixed
 
