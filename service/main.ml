@@ -84,11 +84,13 @@ let has_role user = function
            ) -> true
     | _ -> false
 
-let main config mode app capnp_address github_auth submission_uri : ('a, [`Msg of string]) result =
+(* The app parameter (the GitHub app for this pipeline) is ignored for now;
+   we have decided not to use that as part of this CI. *)
+let main config mode _app capnp_address github_auth submission_uri : ('a, [`Msg of string]) result =
   Lwt_main.run begin
     run_capnp capnp_address >>= fun (vat, rpc_engine_resolver) ->
     let ocluster = Option.map (Capnp_rpc_unix.Vat.import_exn vat) submission_uri in
-    let engine = Current.Engine.create ~config (Pipeline.v ?ocluster ~app ~solver) in
+    let engine = Current.Engine.create ~config (Pipeline.v ?ocluster ~solver) in
     rpc_engine_resolver |> Option.iter (fun r -> Capability.resolve_ok r (Api_impl.make_ci ~engine));
     let authn = Option.map Current_github.Auth.make_login_uri github_auth in
     let has_role =

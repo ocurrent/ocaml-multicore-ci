@@ -42,9 +42,6 @@ let platforms =
   in
   Current.list_seq (List.map v Conf.platforms)
 
-(* Link for GitHub statuses. *)
-let make_url ~owner ~name ~hash = Uri.of_string (Printf.sprintf "https://multicore.ci.ocamllabs.io/github/%s/%s/commit/%s" owner name hash)
-
 let get_job_id x =
   let+ md = Current.Analysis.metadata x in
   match md with
@@ -186,16 +183,6 @@ let analyse_build_summarise ?ocluster ~solver ~repo ~is_compiler ?compiler_commi
   let builds = build_with_docker ?ocluster ~repo ?compiler_commit ?label ~analysis commit in
   (builds, summarise_builds builds)
 
-let fetch_analyse_build_summarise ?ocluster ~solver ~repo ?label head =
-  let src = Git.fetch (Current.map Github.Api.Commit.id head) in
-  let (builds, summary) = analyse_build_summarise ?ocluster ~solver ~repo ~is_compiler:false ?label src in
-  let index = record_builds_github ~commit:head ~builds ~summary in
-  Current.all [
-    index;
-    set_github_status ~head ~make_url ~pipeline_name:Conf.ci_pipeline_name
-      summary
-  ]
-
 let build_from_clone_with_compiler ?ocluster ~solver ?compiler_commit repo_clone =
   let (repo_url, _) = repo_clone in
   let commit = build_from_clone_component ?compiler_commit repo_clone in
@@ -250,28 +237,14 @@ let build_from_clone ?ocluster ~solver (repo_clone: (string * Git.Commit.t Curre
     in
     Current.ignore_value build
 
-let build_installation ?ocluster ~solver installation =
-  let repos = Github.Installation.repositories installation |> set_active_repos ~installation in
-  repos |> Current.list_iter ~collapse_key:"repo" (module Github.Api.Repo) @@ fun repo ->
-  let refs = Github.Api.Repo.ci_refs ~staleness:Conf.max_staleness repo |> set_active_refs ~repo in
-  refs |> Current.list_iter (module Github.Api.Commit) @@ (fetch_analyse_build_summarise ?ocluster ~solver ~repo:(Current.map (Fmt.to_to_string Github.Api.Repo.pp) repo))
-
-let v ?ocluster ~app ~solver () =
+let v ?ocluster ~solver () =
   let ocluster = Option.map (Cluster_build.config ~timeout:(Duration.of_hour 1)) ocluster in
   Current.with_context opam_repository_commits @@ fun () ->
   Current.with_context platforms @@ fun () ->
-  let build_installations = match app with
-  | None -> Current.return ()
-  | Some app ->
-    let installations = Github.App.installations app |> set_active_installations in
-    installations |> Current.list_iter
-      ~label:"GitHub installations" ~collapse_key:"org"
-      (module Github.Installation) @@ (build_installation ?ocluster ~solver)
-  in
   let build_fixed =
     clone_fixed_repos () |> List.map (build_from_clone ?ocluster ~solver)
   in
-  Current.all (build_installations :: build_fixed)
+  Current.all build_fixed
 
 let local_test_fixed ~solver (): unit Current.t =
   Current.with_context opam_repository_commits @@ fun () ->
