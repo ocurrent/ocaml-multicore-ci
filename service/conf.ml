@@ -101,7 +101,7 @@ let platforms =
         List.map make_release ovs @ [make_release ~arch:`I386 (List.hd ovs)]
     end
   | `Multicore ->
-    let ovs = List.map OV.of_string_exn ["4.12"; "4.12+domains"; "4.12+domains+effects"] in
+    let ovs = List.map OV.of_string_exn ["4.12"; "4.12+domains"] in
     List.map make_release ovs
 
 let opam_repository_repos = [
@@ -128,7 +128,6 @@ let fixed_repos = [
   "https://github.com/mirage/irmin@2.7";
   "https://github.com/ocaml-batteries-team/batteries-included@v3.3.0";
   "https://github.com/ocaml-multicore/ocaml-multicore@4.12+domains";
-  "https://github.com/ocaml-multicore/ocaml-multicore@4.12+domains+effects";
   "https://github.com/ocsigen/lwt@5.4.1";
 ]
 
