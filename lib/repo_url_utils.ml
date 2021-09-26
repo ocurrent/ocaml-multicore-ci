@@ -6,7 +6,14 @@ let first_two = function
 | [a] -> [a; "dummy"]
 | a :: b :: _ -> [a; b]
 
+let url_gref_from_url url =
+  let bits = url |> String.split_on_char '@' in
+  match bits with
+  | [url; gref] -> (url, gref)
+  | _ -> (url, "master")
+
 let owner_name_from_url url =
+  let (url, _) = url_gref_from_url url in
   let bits =
     url |>
     Str.global_replace git_ext_re "" |>
@@ -19,14 +26,7 @@ let owner_name_from_url url =
   | [name; owner] -> (owner, name)
   | _ -> assert false
 
-let url_gref_from_url url =
-  let bits = url |> String.split_on_char '@' in
-  match bits with
-  | [url; gref] -> (url, gref)
-  | _ -> (url, "master")
-
 let owner_slash_name_from_url url =
-  let (url, _) = url_gref_from_url url in
   let (owner, name) = owner_name_from_url url in
   owner ^ "/" ^ name
 

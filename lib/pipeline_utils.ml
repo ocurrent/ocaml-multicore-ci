@@ -113,6 +113,23 @@ let list_errors ~ok errs =
         Fmt.strf "%a failed" Fmt.(list ~sep:(unit ", ") pp_label) errs
     ))
 
+let combine_variant_compiler variant = function
+| None -> variant
+| Some compiler ->
+  try
+    let version = Ocaml_version.of_string_exn compiler in
+    let minor_version = Ocaml_version.with_just_major_and_minor version in
+    let version_str = Fmt.strf "-%s" (Ocaml_version.to_string minor_version) in
+    let variant_str =
+      if Astring.String.is_suffix ~affix:version_str variant then
+        String.sub variant 0 (String.length variant - String.length version_str)
+      else
+        variant
+    in
+    Fmt.strf "%s on %s" compiler variant_str
+  with _ ->
+    Fmt.strf "%s on %s" compiler variant
+
 let summarise results =
   results |> List.fold_left (fun (ok, pending, err, skip) -> function
       | _, Ok `Checked -> (ok, pending, err, skip)  (* Don't count lint checks *)
@@ -128,9 +145,17 @@ let summarise results =
     | _, [], _ -> Ok ()                     (* No errors and at least one success *)
     | ok, err, _ -> list_errors ~ok err     (* Some errors found - report *)
 
+let remap_build (variant, compiler, (build, _job)) =
+  (combine_variant_compiler variant compiler, build)
+
 let summarise_builds builds =
   builds
-  |> Current.map (List.map (fun (variant, (build, _job)) -> variant, build))
+  |> List.map remap_build
+  |> summarise
+
+let summarise_builds_current builds =
+  builds
+  |> Current.map (List.map remap_build)
   |> Current.map summarise
 
 let status_of_summary = function
@@ -154,19 +179,14 @@ let set_github_status ~head ~make_url ~pipeline_name summary =
   |> github_status_of_state ~head ~make_url
   |> Github.Api.Commit.set_status head pipeline_name
 
-let record_builds ~repo ~hash ~builds ~summary =
+let record_builds ~repo_url ~hash ~builds ~summary =
+  let (owner, name) = Repo_url_utils.owner_name_from_url repo_url in
   let status =
     let+ summary = summary in
     status_of_summary summary
   in
   let+ builds = builds
-  and+ repo = repo
   and+ hash = hash
   and+ status = status in
-  let jobs = builds |> List.map (fun (variant, (_, job_id)) -> (variant, job_id)) in
-  Index.record ~repo ~hash ~status jobs
-
-let record_builds_github ~commit ~builds ~summary =
-  let repo = Current.map Github.Api.Commit.repo_id commit in
-  let hash = Current.map Github.Api.Commit.hash commit in
-  record_builds ~repo ~hash ~builds ~summary
+  builds |> List.map (fun (variant, compiler, (_, job_id)) ->
+     Index.record ~owner ~name ~hash ~status ~variant:(combine_variant_compiler variant compiler) job_id)

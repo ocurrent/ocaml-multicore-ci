@@ -1,6 +1,6 @@
 (** The index is:
     - A map from active Git references to the Git commit at their heads.
-    - A map from project builds ([owner * name * hash)] triples) to statuses.
+    - A map from project builds ([owner * name * hash * variant)] tuples) to statuses.
     - A (persisted) map from each Git commit hash to its last known OCurrent job ID. *)
 
 type job_state = [`Not_started | `Active | `Failed of string | `Passed | `Aborted ] [@@deriving show]
@@ -11,12 +11,22 @@ val init : unit -> unit
 (** Ensure the database is initialised (for unit-tests). *)
 
 val record :
-  repo:Current_github.Repo_id.t ->
+  owner:string ->
+  name:string ->
   hash:string ->
+  variant:string ->
   status:build_status ->
-  (string * Current.job_id option) list ->
+  Current.job_id option ->
   unit
-(** [record ~repo ~hash jobs] updates the entry for [repo, hash] to point at [jobs]. *)
+(** [record ~owner ~name ~hash ~variant job] updates the entry for [owner, name, hash, variant] to point at job. *)
+
+val remove :
+  owner:string ->
+  name:string ->
+  hash:string ->
+  variant:string ->
+  unit
+(** [remove ~owner ~name ~hash ~variant] removes the entry for [owner, name, hash, variant]. *)
 
 val get_jobs : owner:string -> name:string -> string -> (string * job_state) list
 (** [get_jobs ~owner ~name commit] is the last known set of OCurrent jobs for hash [commit] in repository [owner/name]. *)

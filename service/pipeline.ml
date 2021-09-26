@@ -107,7 +107,7 @@ let place_build ~ocluster ~repo ?compiler_commit ~source spec =
   and+ spec = spec in
   Spec.label spec, result
 
-let build_with_docker ?ocluster ~repo ?compiler_commit ?label ~analysis source =
+let place_builds ?ocluster ~repo ?compiler_gref ?compiler_commit ?label ~analysis source =
   Current.with_context analysis @@ fun () ->
   let specs =
     let+ analysis = Current.state ~hidden:true analysis in
@@ -122,8 +122,8 @@ let build_with_docker ?ocluster ~repo ?compiler_commit ?label ~analysis source =
   let+ builds = specs |> Current.list_map ?label (module Spec) (place_build ~ocluster ~repo ?compiler_commit ~source)
   and+ analysis_result = Current.state ~hidden:true (Current.map (fun _ -> `Checked) analysis)
   and+ analysis_id = get_job_id analysis in
-  builds @ [
-    "(analysis)", (analysis_result, analysis_id);
+  (builds |> List.map (fun (l, r) -> l, compiler_gref, r)) @ [
+    "(analysis)", None, (analysis_result, analysis_id);
   ]
 
 let analysis_component ?label ~solver ~is_compiler commit =
@@ -151,12 +151,8 @@ let local_test ?label ~solver repo () =
   let get_is_compiler_blocklisted _ _ = false in
   let analysis = analysis_component ?label ~solver ~is_compiler:false ~get_is_compiler_blocklisted ~repo:repo_str src in
   Current.component "summarise" |>
-  let> results = build_with_docker ~repo:repo_str ?label ~analysis src in
-  let result =
-    results
-    |> List.map (fun (variant, (build, _job)) -> variant, build)
-    |> summarise
-  in
+  let> results = place_builds ~repo:repo_str ?label ~analysis src in
+  let result = summarise_builds results in
   Current_incr.const (result, None)
 
 let local_test_multiple ~solver repos () =
@@ -178,29 +174,31 @@ let clone_fixed_repos (): (string * Git.Commit.t Current.t) list =
     )
   ) |> List.flatten
 
-let analyse_build_summarise ?ocluster ~solver ~repo ~is_compiler ?compiler_commit ?label commit =
+let analyse_build_summarise ?ocluster ~solver ~repo ~is_compiler ?compiler_gref ?compiler_commit ?label commit =
   let analysis = analysis_component ~solver ?label ~is_compiler ~get_is_compiler_blocklisted:is_compiler_blocklisted ~repo commit in
-  let builds = build_with_docker ?ocluster ~repo ?compiler_commit ?label ~analysis commit in
-  (builds, summarise_builds builds)
+  let builds = place_builds ?ocluster ~repo ?compiler_gref ?compiler_commit ?label ~analysis commit in
+  (builds, summarise_builds_current builds)
 
 let build_from_clone_with_compiler ?ocluster ~solver ?compiler_commit repo_clone =
   let (repo_url, _) = repo_clone in
   let commit = build_from_clone_component ?compiler_commit repo_clone in
-  let repo_id = Repo_url_utils.repo_id_from_url repo_url in
   let hash = Current.map Git.Commit.hash commit in
   let label = Repo_url_utils.owner_name_gref_from_url repo_url in
   let is_compiler = is_compiler_from_repo_url repo_url in
   let (builds, summary) = analyse_build_summarise ?ocluster ~solver ~is_compiler ?compiler_commit ~label ~repo:(Current.return repo_url) commit in
-  let recorded_builds = record_builds ~repo:(Current.return repo_id) ~hash ~builds ~summary
+  let recorded_builds = record_builds ~repo_url ~hash ~builds ~summary
   in
   (commit, recorded_builds)
 
-let build_with_compiler ?ocluster ~solver ~compiler_commit ?label commit =
+let build_with_compiler ?ocluster ~solver ~compiler_gref ~compiler_commit ?label ~repo_url commit =
+  let hash = Current.map Git.Commit.hash commit in
   let cache_hint = Current.map (fun c -> Git.Commit_id.repo (Git.Commit.id c)) compiler_commit in
   let compiler_commit_id = Current.map Git.Commit.id compiler_commit in
   let analysis = analysis_with_compiler_component ~solver ?label ~compiler_commit:compiler_commit_id commit in
-  let builds = build_with_docker ?ocluster ~repo:cache_hint ~compiler_commit ?label ~analysis commit in
-  Current.ignore_value (summarise_builds builds)
+  let builds = place_builds ?ocluster ~repo:cache_hint ~compiler_gref ~compiler_commit ?label ~analysis commit in
+  let summary = summarise_builds_current builds in
+  let recorded_builds = record_builds ~repo_url ~hash ~builds ~summary in
+  Current.ignore_value (recorded_builds)
 
 let build_from_clone ?ocluster ~solver (repo_clone: (string * Git.Commit.t Current.t)) =
   let (repo_url, commit) = repo_clone in
@@ -226,7 +224,7 @@ let build_from_clone ?ocluster ~solver (repo_clone: (string * Git.Commit.t Curre
           let label = Fmt.str "%s@ (%s)" (tidy_label child_repo_url) compiler_gref in
           Some (
             build_with_compiler ?ocluster ~solver
-              ~compiler_commit ~label child_commit
+              ~compiler_gref ~compiler_commit ~label ~repo_url:child_repo_url child_commit
           )
       )
     in
