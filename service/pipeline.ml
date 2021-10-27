@@ -236,7 +236,7 @@ let build_from_clone ?ocluster ~solver (repo_clone: (string * Git.Commit.t Curre
     Current.ignore_value build
 
 let v ?ocluster ~solver () =
-  let ocluster = Option.map (Cluster_build.config ~timeout:(Duration.of_hour 1)) ocluster in
+  let ocluster = Option.map (Cluster_build.config ~timeout:(Duration.of_hour 2)) ocluster in
   Current.with_context opam_repository_commits @@ fun () ->
   Current.with_context platforms @@ fun () ->
   let build_fixed =
