@@ -106,14 +106,10 @@ let platforms =
 
 let opam_repository_repos = [
   `Mainline, { Github.Repo_id.owner="ocaml"; name="opam-repository" };
-  `Multicore, { Github.Repo_id.owner="ocaml-multicore"; name="multicore-opam" }
 ]
 
 let opam_repository_commits =
-  let chosen_repos = match target with
-  | `Mainline -> [`Mainline]
-  | `Multicore -> [`Mainline; `Multicore]
-  in
+  let chosen_repos = [`Mainline] in
   chosen_repos |>
     List.map (fun r -> Github.Api.Anonymous.head_of (List.assoc r opam_repository_repos) (`Ref "refs/heads/master")) |>
     Current.list_seq
