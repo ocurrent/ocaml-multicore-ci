@@ -28,21 +28,21 @@ let rec with_commit_lock ~job commit variant fn =
          Lwt.return_unit
       )
 
-let make_build_spec ~base ~repo ~compiler_commit ~variant ~ty =
+let make_build_spec ~base ~repo ~test_repo ~compiler_commit ~variant ~ty =
     let base = Raw.Image.hash base in
     match ty with
     | `Opam (`Build, selection, opam_files) ->
          begin
            match compiler_commit with
           | None ->
-            Opam_build.spec_dune ~base ~opam_files ~compiler_commit ~selection
+            Opam_build.spec_dune ~repo:test_repo ~base ~opam_files ~compiler_commit ~selection
           | Some _ ->
             Opam_build.spec_opam_install ~base ~opam_files ~compiler_commit ~selection
         end
     | `Opam (`Lint `Doc, selection, opam_files) -> Lint.doc_spec ~base ~opam_files ~selection
     | `Opam (`Lint `Opam, selection, opam_files) -> Lint.opam_lint_spec ~base ~opam_files ~selection
-    | `Opam (`Make targets, selection, opam_files) -> Opam_build.spec_make ~base ~opam_files ~compiler_commit ~selection ~targets
-    | `Opam (`Script cmds, selection, opam_files) -> Opam_build.spec_script ~base ~opam_files ~compiler_commit ~selection ~cmds
+    | `Opam (`Make targets, selection, opam_files) -> Opam_build.spec_make ~repo:test_repo ~base ~opam_files ~compiler_commit ~selection ~targets
+    | `Opam (`Script cmds, selection, opam_files) -> Opam_build.spec_script ~repo:test_repo ~base ~opam_files ~compiler_commit ~selection ~cmds
     | `Opam_fmt ocamlformat_source -> Lint.fmt_spec ~base ~ocamlformat_source
     | `Opam_monorepo config -> Opam_monorepo.spec ~base ~repo ~config ~variant
 
@@ -58,14 +58,16 @@ module Op = struct
       commit : Current_git.Commit.t;            (* The source code to build and test *)
       compiler_commit : Current_git.Commit.t option;  (* The commit for the compiler build to use. If None then the one in the base image will be used. *)
       repo : string;                            (* Used to choose a build cache *)
+      test_repo : string option;                       (* The repo under test, if repo is a compiler *)
       label : string;                           (* A unique ID for this build within the commit *)
     }
 
-    let to_json { commit; compiler_commit; label; repo } =
+    let to_json { commit; compiler_commit; label; repo; test_repo } =
       `Assoc [
         "commit", `String (Current_git.Commit.hash commit);
         "compiler_commit", (match compiler_commit with None -> `Null | Some compiler_commit -> `String (Current_git.Commit.marshal compiler_commit));
         "repo", `String repo;
+        "test_repo", (match test_repo with None -> `Null | Some r -> `String r);
         "label", `String label;
       ]
 
@@ -96,13 +98,13 @@ module Op = struct
     | Error (`Msg m) -> raise (Failure m)
 
   let run { Builder.docker_context; pool; build_timeout } job
-      { Key.commit; compiler_commit; label = _; repo } { Value.base; variant; ty } =
+      { Key.commit; compiler_commit; label = _; repo; test_repo } { Value.base; variant; ty } =
     let compiler_commit_id = Option.map Current_git.Commit.id compiler_commit in
     let build_context_commit = match compiler_commit with
     | None -> commit
     | Some cc -> cc
     in
-    let build_spec = make_build_spec ~base ~compiler_commit:compiler_commit_id ~repo ~variant ~ty
+    let build_spec = make_build_spec ~base ~compiler_commit:compiler_commit_id ~repo ~test_repo ~variant ~ty
     in
     let make_dockerfile ~for_user =
       (if for_user then "" else Buildkit_syntax.add (Variant.arch variant)) ^
@@ -139,9 +141,9 @@ module Op = struct
     let pp_error_command f = Fmt.string f "Docker build" in
     Current.Process.exec ~cancellable:true ~pp_error_command ~job cmd
 
-  let pp f ({ Key.repo; commit; compiler_commit; label }, _) =
-    Fmt.pf f "test %s %a %a (%s)"
-      repo
+  let pp f ({ Key.repo; test_repo; commit; compiler_commit; label }, _) =
+    Fmt.pf f "test %s %a %a %a (%s)"
+      repo (Fmt.option Fmt.string) test_repo
       Current_git.Commit.pp commit
       (Fmt.option Current_git.Commit.pp) compiler_commit
       label
@@ -152,7 +154,7 @@ end
 
 module BC = Current_cache.Generic(Op)
 
-let build ~platforms ~spec ~repo ?compiler_commit commit =
+let build ~platforms ~spec ~repo ?test_repo ?compiler_commit commit =
   Current.component "build" |>
   let> { Spec.variant; ty; label } = spec
   and> commit = commit
@@ -161,7 +163,7 @@ let build ~platforms ~spec ~repo ?compiler_commit commit =
   and> repo = repo in
   match List.find_opt (fun p -> Variant.equal p.Platform.variant variant) platforms with
   | Some { Platform.builder; variant; base; _ } ->
-    BC.run builder { Op.Key.commit; compiler_commit; repo; label } { Op.Value.base; ty; variant }
+    BC.run builder { Op.Key.commit; compiler_commit; repo; test_repo; label } { Op.Value.base; ty; variant }
   | None ->
     (* We can only get here if there is a bug. If the set of platforms changes, [Analyse] should recalculate. *)
     let msg = Fmt.strf "BUG: variant %a is not a supported platform" Variant.pp variant in
@@ -173,8 +175,8 @@ let get_job_id x =
   | Some { Current.Metadata.job_id; _ } -> job_id
   | None -> None
 
-let v ~platforms ~repo ?compiler_commit ~spec source =
-  let build = build ~platforms ~spec ~repo ?compiler_commit source in
+let v ~platforms ~repo ?test_repo ?compiler_commit ~spec source =
+  let build = build ~platforms ~spec ~repo ?test_repo ?compiler_commit source in
   let+ state = Current.state ~hidden:true build
   and+ job_id = get_job_id build
   and+ spec = spec in

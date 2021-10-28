@@ -95,19 +95,19 @@ let make_opam_specs analysis =
     in
     lint @ builds
 
-let place_build ~ocluster ~repo ?compiler_commit ~source spec =
+let place_build ~ocluster ~repo ?test_repo ?compiler_commit ~source spec =
   let+ result =
     match ocluster with
     | None ->
-      Build.v ~platforms ~repo ?compiler_commit ~spec source
+      Build.v ~platforms ~repo ?test_repo ?compiler_commit ~spec source
     | Some ocluster ->
       let src = Current.map Git.Commit.id source in
       let compiler_commit_id = Option.map (fun c -> Current.map Git.Commit.id c) compiler_commit in
-      Cluster_build.v ocluster ~platforms ~repo ?compiler_commit:compiler_commit_id ~spec src
+      Cluster_build.v ocluster ~platforms ~repo ?test_repo ?compiler_commit:compiler_commit_id ~spec src
   and+ spec = spec in
   Spec.label spec, result
 
-let place_builds ?ocluster ~repo ?compiler_gref ?compiler_commit ?label ~analysis source =
+let place_builds ?ocluster ~repo ?test_repo ?compiler_gref ?compiler_commit ?label ~analysis source =
   Current.with_context analysis @@ fun () ->
   let specs =
     let+ analysis = Current.state ~hidden:true analysis in
@@ -119,7 +119,7 @@ let place_builds ?ocluster ~repo ?compiler_gref ?compiler_commit ?label ~analysi
       make_opam_specs analysis
   in
   let label = tidy_label_opt label in
-  let+ builds = specs |> Current.list_map ?label (module Spec) (place_build ~ocluster ~repo ?compiler_commit ~source)
+  let+ builds = specs |> Current.list_map ?label (module Spec) (place_build ~ocluster ~repo ?test_repo ?compiler_commit ~source)
   and+ analysis_result = Current.state ~hidden:true (Current.map (fun _ -> `Checked) analysis)
   and+ analysis_id = get_job_id analysis in
   (builds |> List.map (fun (l, r) -> l, compiler_gref, r)) @ [
@@ -195,7 +195,7 @@ let build_with_compiler ?ocluster ~solver ~compiler_gref ~compiler_commit ?label
   let cache_hint = Current.map (fun c -> Git.Commit_id.repo (Git.Commit.id c)) compiler_commit in
   let compiler_commit_id = Current.map Git.Commit.id compiler_commit in
   let analysis = analysis_with_compiler_component ~solver ?label ~compiler_commit:compiler_commit_id commit in
-  let builds = place_builds ?ocluster ~repo:cache_hint ~compiler_gref ~compiler_commit ?label ~analysis commit in
+  let builds = place_builds ?ocluster ~repo:cache_hint ~test_repo:repo_url ~compiler_gref ~compiler_commit ?label ~analysis commit in
   let summary = summarise_builds_current builds in
   let recorded_builds = record_builds ~repo_url ~hash ~builds ~summary in
   Current.ignore_value (recorded_builds)

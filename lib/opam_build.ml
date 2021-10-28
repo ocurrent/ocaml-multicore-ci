@@ -147,10 +147,21 @@ let install_compiler commit =
     run "opam switch create %s --empty && opam repository && opam pin add -y -k path --inplace-build ocaml-variants.4.12.0+domains . && eval $(opam env) && ocamlrun -version" switch_name
   ]
 
+let clone_target_repo repo =
+  let (repo_url, repo_gref) = Repo_url_utils.url_gref_from_url repo in
+  [
+    comment "Clone source repo %s to /testsrc/src" repo;
+    user ~uid:0 ~gid:0;
+    run "mkdir /testsrc";
+    run "chown 1000:1000 /testsrc";
+    user ~uid:1000 ~gid:1000;
+    run "git clone %s /testsrc/src && git -C /testsrc/src -c advice.detachedHead=false checkout %s" repo_url repo_gref
+  ]
+
 let print_compiler_version =
   run "eval $(opam env) && opam switch && ocamlrun -version"
 
-let spec_helper ~body ~base ~opam_files ~compiler_commit ~selection =
+let spec_helper ~body ~repo ~base ~opam_files ~compiler_commit ~selection =
   stage ~from:base ([
     comment "Variant: %s" (Fmt.strf "%a" Variant.pp selection.Selection.variant);
     user ~uid:1000 ~gid:1000;
@@ -163,8 +174,14 @@ let spec_helper ~body ~base ~opam_files ~compiler_commit ~selection =
         pin_and_install_deps ~opam_files selection @
         copy_src
     | Some compiler_commit ->
-      copy_src @
-        install_compiler compiler_commit
+      (match repo with
+       | Some repo -> clone_target_repo repo
+       | None -> []) @
+        copy_src @
+        install_compiler compiler_commit @
+        (match repo with
+         | Some _ -> [workdir "/testsrc/src"]
+         | None -> [])
     ) @
     body
   )
@@ -175,21 +192,21 @@ let run_opam_exec cmd =
 let run_all_opam_exec cmds =
   List.map run_opam_exec cmds
 
-let spec_script_bare ~base ~opam_files ~compiler_commit ~selection ~cmds =
+let spec_script_bare ~repo ~base ~opam_files ~compiler_commit ~selection ~cmds =
   let body = comment "Run build" :: cmds in
-  spec_helper ~body ~base ~opam_files ~compiler_commit ~selection
+  spec_helper ~body ~repo ~base ~opam_files ~compiler_commit ~selection
 
-let spec_script ~base ~opam_files ~compiler_commit ~selection ~cmds =
-  spec_script_bare ~base ~opam_files ~compiler_commit ~selection
+let spec_script ~repo ~base ~opam_files ~compiler_commit ~selection ~cmds =
+  spec_script_bare ~repo ~base ~opam_files ~compiler_commit ~selection
     ~cmds:(run_all_opam_exec cmds)
 
-let spec_dune ~base ~opam_files ~compiler_commit ~selection =
+let spec_dune ~repo ~base ~opam_files ~compiler_commit ~selection =
   let cmd = match selection.Selection.command with
   | Some c -> c
   | None -> "dune build @install @runtest"
   in
-  let cmds = [cmd ^ " && rm -rf _build"] in
-  spec_script ~base ~opam_files ~compiler_commit ~selection ~cmds
+  let cmds = ["opam install dune"; cmd ^ " && rm -rf _build"] in
+  spec_script ~repo ~base ~opam_files ~compiler_commit ~selection ~cmds
 
 (* Remove packages that are not in upstream opam-repository *)
 let is_package_blocklisted p =
@@ -228,8 +245,8 @@ let spec_opam_install ~base ~opam_files ~compiler_commit ~selection =
     run "opam depext --update -y %s" pkgs_str;
     run_opam_exec (Fmt.str "opam install -t %s" pkgs_str)
   ] in
-  spec_script_bare ~base ~opam_files ~compiler_commit ~selection ~cmds
+  spec_script_bare ~repo:None ~base ~opam_files ~compiler_commit ~selection ~cmds
 
-let spec_make ~base ~opam_files ~compiler_commit ~selection ~targets =
+let spec_make ~repo ~base ~opam_files ~compiler_commit ~selection ~targets =
   let cmds = [Format.sprintf "make %s" (String.concat " " targets)] in
-  spec_script ~base ~opam_files ~compiler_commit ~selection ~cmds
+  spec_script ~repo ~base ~opam_files ~compiler_commit ~selection ~cmds

@@ -6,6 +6,7 @@ val v :
   t ->
   platforms:Platform.t list Current.t ->
   repo:string Current.t ->
+  ?test_repo:string ->
   ?compiler_commit:Current_git.Commit_id.t Current.t ->
   spec:Spec.t Current.t ->
   Current_git.Commit_id.t Current.t ->
