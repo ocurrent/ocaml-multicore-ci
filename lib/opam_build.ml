@@ -144,7 +144,7 @@ let install_compiler commit =
   let switch_name = compiler_switch_name_from_commit commit in
   [
     comment "Create switch for compiler (%s)" switch_name;
-    run "opam switch create %s --empty && opam repository && opam pin add -y -k path --inplace-build ocaml-variants.4.12.0+domains . && eval $(opam env) && ocamlrun -version" switch_name
+    run "opam switch create %s --empty && opam repository && opam pin add -y -k path --inplace-build ocaml-variants.$(opam show --file ocaml-variants.opam -f version) . && eval $(opam env) && ocamlrun -version" switch_name
   ]
 
 let clone_target_repo repo =
