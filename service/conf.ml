@@ -130,7 +130,7 @@ let fixed_repos = [
 let build_mechanism_for_package package =
   match package with
   | "batteries" -> `Make ["all"; "test"]
-  | "CompCert" -> `Script ["sudo apt-get install -y libgmp-dev"; "opam install coq menhir"; "./configure x86_64-linux"; "make"; "make test"]
+  | "CompCert" -> `Script ["sudo apt-get install -y libgmp-dev"; "opam install coq menhir"; "./configure x86_64-linux"; "make -j 4 all"; "make -C test all test"]
   | "coq" -> `Script ["opam install menhir ounit2"; "./configure -no-ask"; "make"; "make check"]
   | "ocaml-multicore" -> `Script []
   | _ -> `Build
