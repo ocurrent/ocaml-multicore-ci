@@ -314,7 +314,12 @@ module Analysis = struct
     if is_compiler || opam_files = [] then Lwt_result.return (
       dummy_analysis ~platforms ~opam_repository_commits ~package_name
     )
-    else if List.filter is_toplevel opam_files = [] then Lwt_result.fail (`Msg "No top-level opam files found!")
+    else if List.filter is_toplevel opam_files = [] then
+      let dunepath = Filename.concat (Fpath.to_string dir) "dune" in
+      if Sys.file_exists dunepath then
+        Lwt_result.return (dummy_analysis ~platforms ~opam_repository_commits ~package_name)
+      else
+        Lwt_result.fail (`Msg "No top-level opam or dune files found!")
     else (
       begin
         match ty with

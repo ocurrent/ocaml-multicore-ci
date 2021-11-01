@@ -105,13 +105,19 @@ let platforms =
     List.map make_release ovs
 
 let opam_repository_repos = [
-  `Mainline, { Github.Repo_id.owner="ocaml"; name="opam-repository" };
+  `Mainline, ({ Github.Repo_id.owner="ocaml"; name="opam-repository" }, "master");
+  `MulticoreTezos, ({ Github.Repo_id.owner="ocaml-multicore"; name="tezos-opam-repository" }, "4.12.0+domains")
 ]
 
 let opam_repository_commits =
-  let chosen_repos = [`Mainline] in
+  let chosen_repos = match target with
+  | `Mainline -> [`Mainline]
+  | `Multicore -> [`Mainline; `MulticoreTezos]
+  in
   chosen_repos |>
-    List.map (fun r -> Github.Api.Anonymous.head_of (List.assoc r opam_repository_repos) (`Ref "refs/heads/master")) |>
+    List.map (fun r ->
+      let (repo, branch) = List.assoc r opam_repository_repos
+      in Github.Api.Anonymous.head_of repo (`Ref ("refs/heads/" ^ branch))) |>
     Current.list_seq
 
 let fixed_repos = [
@@ -124,6 +130,11 @@ let fixed_repos = [
   "https://github.com/mirage/irmin@2.7";
   "https://github.com/ocaml-batteries-team/batteries-included@v3.3.0";
   "https://github.com/ocaml-multicore/ocaml-multicore@4.12+domains";
+  "https://github.com/ocaml-multicore/tezos@5963aae437809881f67aee3373e5d35b5aa2348f";
+  (* tezos@4.12.0+domains currently doesn't work, because it requires
+   * opam 2.1 and our builds are using opam 2.0.8.
+   *
+   * "https://github.com/ocaml-multicore/tezos@4.12.0+domains"; *)
   "https://github.com/ocsigen/lwt@5.4.1";
 ]
 
@@ -133,6 +144,7 @@ let build_mechanism_for_package package =
   | "CompCert" -> `Script ["sudo apt-get install -y libgmp-dev"; "opam install coq menhir"; "./configure x86_64-linux"; "make -j 4 all"; "make -C test all test"]
   | "coq" -> `Script ["sudo apt-get install -y python3"; "opam install menhir ounit2"; "./configure -local -no-ask"; "make world"; "bash -c 'export PRINT_LOGS=1; make test-suite'"]
   | "ocaml-multicore" -> `Script []
+  | "tezos" -> `Script ["sudo apt-get install -y rsync git m4 build-essential patch unzip wget pkg-config libgmp-dev libev-dev libhidapi-dev libffi-dev opam jq zlib1g-dev bc autoconf software-properties-common"; "gpg --keyserver keyserver.ubuntu.com --recv-keys BA6932366A755776"; "gpg --export BA6932366A755776 | sudo apt-key add -"; "sudo add-apt-repository 'deb http://ppa.launchpad.net/deadsnakes/ppa/ubuntu bionic main'"; "sudo apt-get update"; "sudo apt-get install -y python3.9 python3.9-dev python3.9-distutils python3-pip virtualenv"; "wget https://sh.rustup.rs/rustup-init.sh"; "chmod +x rustup-init.sh"; "./rustup-init.sh --profile minimal --default-toolchain 1.52.1 -y"; "opam install dune"; "curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py | python3.9 -"; "python3.9 -m pip install --upgrade setuptools"; "bash -c 'source $HOME/.cargo/env; make build-deps && eval $(opam env); PATH=\"$HOME/.local/bin:$PATH\"; make -C tests_python install-dependencies && make && make test'"]
   | _ -> `Build
 
 let is_compiler_package package =
