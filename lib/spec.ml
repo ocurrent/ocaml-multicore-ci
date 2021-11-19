@@ -40,7 +40,7 @@ let pp_summary f = function
   | `Opam (`Make _, _, _) -> Fmt.string f "Opam project build using make"
   | `Opam (`Script _, _, _) -> Fmt.string f "Opam project build using an arbitrary script"
   | `Opam_fmt v -> Fmt.pf f "ocamlformat version: %a"
-                     Fmt.(option ~none:(unit "none") Analyse_ocamlformat.pp_source) v
+                     Fmt.(option ~none:(any "none") Analyse_ocamlformat.pp_source) v
   | `Opam_monorepo _ -> Fmt.string f "opam-monorepo build"
 
 let digest_of_ty ~variant ty =

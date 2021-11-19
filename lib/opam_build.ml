@@ -163,7 +163,7 @@ let print_compiler_version =
 
 let spec_helper ~body ~repo ~base ~opam_files ~compiler_commit ~selection =
   stage ~from:base ([
-    comment "Variant: %s" (Fmt.strf "%a" Variant.pp selection.Selection.variant);
+    comment "Variant: %s" (Fmt.str "%a" Variant.pp selection.Selection.variant);
     user ~uid:1000 ~gid:1000;
   ] @
     install_os_deps selection @
@@ -240,7 +240,7 @@ let spec_opam_install ~base ~opam_files ~compiler_commit ~selection =
     |> List.map Filename.chop_extension
     |> filter_opam_packages
   in
-  let pkgs_str = Fmt.(to_to_string (list ~sep:(unit " ") string) opam_packages) in
+  let pkgs_str = Fmt.(to_to_string (list ~sep:(any " ") string) opam_packages) in
   let cmds = [
     run "opam depext --update -y %s" pkgs_str;
     run_opam_exec (Fmt.str "opam install -t %s" pkgs_str)
