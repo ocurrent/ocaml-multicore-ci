@@ -26,7 +26,7 @@
   (opam-0install (>= 0.4))
   (mirage-crypto-rng (>= 0.8.7))
   (logs (>= 0.7.0))
-  (fmt (>= 0.8.9))
+  (fmt (>= 0.8.7))
   current_git
   current_github
   current_docker
@@ -66,7 +66,7 @@
  (depends
   (yojson (>= 1.7.0))
   (logs (>= 0.7.0))
-  (fmt (>= 0.8.9))
+  (fmt (>= 0.8.7))
   current_rpc
   current_ansi
   (prometheus-app (>= 1.0))
@@ -87,7 +87,7 @@
  (synopsis "Command-line client for ocaml-multicore-ci")
  (depends
   (logs (>= 0.7.0))
-  (fmt (>= 0.8.9))
+  (fmt (>= 0.8.7))
   current_rpc
   (capnp-rpc-unix (>= 1.2))
   ocaml-multicore-ci-api

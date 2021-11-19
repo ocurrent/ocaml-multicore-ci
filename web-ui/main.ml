@@ -7,7 +7,7 @@ let () =
 module Server = Cohttp_lwt_unix.Server
 
 let errorf fmt =
-  fmt |> Fmt.kstrf @@ fun msg -> Error (`Msg msg)
+  fmt |> Fmt.kstr @@ fun msg -> Error (`Msg msg)
 
 let add_cors_headers (headers: Cohttp.Header.t): Cohttp.Header.t =
   Cohttp.Header.add_list headers [

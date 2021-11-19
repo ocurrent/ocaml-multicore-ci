@@ -106,11 +106,11 @@ let list_errors ~ok errs =
       match groups with
       | [] -> "No builds at all!"
       | [ msg, _ ] when ok = 0 -> msg (* Everything failed with the same error *)
-      | [ msg, ls ] -> Fmt.strf "%a failed: %s" Fmt.(list ~sep:(unit ", ") string) ls msg
+      | [ msg, ls ] -> Fmt.str "%a failed: %s" Fmt.(list ~sep:(any ", ") string) ls msg
       | _ ->
         (* Multiple error messages; just list everything that failed. *)
         let pp_label f (_, l) = Fmt.string f l in
-        Fmt.strf "%a failed" Fmt.(list ~sep:(unit ", ") pp_label) errs
+        Fmt.str "%a failed" Fmt.(list ~sep:(any ", ") pp_label) errs
     ))
 
 let combine_variant_compiler variant = function
@@ -119,16 +119,16 @@ let combine_variant_compiler variant = function
   try
     let version = Ocaml_version.of_string_exn compiler in
     let minor_version = Ocaml_version.with_just_major_and_minor version in
-    let version_str = Fmt.strf "-%s" (Ocaml_version.to_string minor_version) in
+    let version_str = Fmt.str "-%s" (Ocaml_version.to_string minor_version) in
     let variant_str =
       if Astring.String.is_suffix ~affix:version_str variant then
         String.sub variant 0 (String.length variant - String.length version_str)
       else
         variant
     in
-    Fmt.strf "%s on %s" compiler variant_str
+    Fmt.str "%s on %s" compiler variant_str
   with _ ->
-    Fmt.strf "%s on %s" compiler variant
+    Fmt.str "%s on %s" compiler variant
 
 let summarise results =
   results |> List.fold_left (fun (ok, pending, err, skip) -> function

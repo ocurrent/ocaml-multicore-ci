@@ -63,7 +63,7 @@ module Op = struct
   module Outcome = Current.Unit
 
   let get_cache_hint repo { Value.base; variant; ty } =
-    Fmt.strf "%s-%s-%a-%s"
+    Fmt.str "%s-%s-%a-%s"
       repo
       (Image.hash base)
       Variant.pp variant
@@ -78,11 +78,11 @@ module Op = struct
     | Some cc -> cc
     in
     Current.Job.write job
-      (Fmt.strf "@[<v>Base: %a@,%a@]@."
+      (Fmt.str "@[<v>Base: %a@,%a@]@."
          Image.pp base
          Spec.pp_summary ty);
     Current.Job.write job
-      (Fmt.strf "@.\
+      (Fmt.str "@.\
                  To reproduce locally:@.@.\
                  %a@.\
                  cat > Dockerfile <<'END-OF-DOCKERFILE'@.\
@@ -131,7 +131,7 @@ let build t ~platforms ~spec ~repo ?test_repo ?compiler_commit commit =
     BC.run t { Op.Key.pool; commit; compiler_commit; repo; test_repo; label } { Op.Value.base; ty; variant }
   | None ->
     (* We can only get here if there is a bug. If the set of platforms changes, [Analyse] should recalculate. *)
-    let msg = Fmt.strf "BUG: variant %a is not a supported platform" Variant.pp variant in
+    let msg = Fmt.str "BUG: variant %a is not a supported platform" Variant.pp variant in
     Current_incr.const (Error (`Msg msg), None)
 
 let get_job_id x =

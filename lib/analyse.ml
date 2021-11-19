@@ -14,7 +14,7 @@ let package_name_re = Str.regexp " -p name\\b"
 let pool = Current.Pool.create ~label:"analyse" 2
 
 let pp_platforms fmt platforms =
-  Fmt.pf fmt "%a" Fmt.(list ~sep:(unit ", ") Variant.pp) (List.map fst platforms)
+  Fmt.pf fmt "%a" Fmt.(list ~sep:(any ", ") Variant.pp) (List.map fst platforms)
 
 let is_empty_file x =
   match Unix.lstat x with
@@ -213,7 +213,7 @@ module Analysis = struct
       selection
 
   let opam_selections ~solve ~job ~platforms ~opam_files dir =
-    Current.Job.log job "Solving: @[platforms=%a@,opam_files=%a@]" pp_platforms platforms Fmt.(list ~sep:(unit ", ") string) opam_files;
+    Current.Job.log job "Solving: @[platforms=%a@,opam_files=%a@]" pp_platforms platforms Fmt.(list ~sep:(any ", ") string) opam_files;
     let src = Fpath.to_string dir in
     let ( / ) = Filename.concat in
     begin
