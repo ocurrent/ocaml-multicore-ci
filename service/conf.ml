@@ -33,7 +33,7 @@ end
 let dev_pool = Current.Pool.create ~label:"docker" 1
 
 (** Maximum time for one Docker build. *)
-let build_timeout = Duration.of_hour 1
+let build_timeout = Duration.of_hour 7
 
 module Builders = struct
   let v docker_context =
