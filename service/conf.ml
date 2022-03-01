@@ -101,12 +101,12 @@ let platforms =
         List.map make_release ovs @ [make_release ~arch:`I386 (List.hd ovs)]
     end
   | `Multicore ->
-    let ovs = List.map OV.of_string_exn ["4.12"] in
+    let ovs = List.map OV.of_string_exn ["5.00"] in
     List.map make_release ovs
 
 let opam_repository_repos = [
   `Mainline, ({ Github.Repo_id.owner="ocaml"; name="opam-repository" }, "master");
-  `MulticoreTezos, ({ Github.Repo_id.owner="ocaml-multicore"; name="tezos-opam-repository" }, "4.12.0+domains")
+  `MulticoreTezos, ({ Github.Repo_id.owner="ocaml-multicore"; name="tezos-opam-repository" }, "5.00.0+trunk")
 ]
 
 let opam_repository_commits =
@@ -129,7 +129,6 @@ let fixed_repos = [
   "https://github.com/janestreet/core_kernel@v0.14.1";
   "https://github.com/mirage/irmin@2.9.0";
   "https://github.com/ocaml-batteries-team/batteries-included@v3.3.0";
-  "https://github.com/ocaml-multicore/ocaml-multicore@4.12+domains";
   "https://github.com/ocaml-multicore/tezos@5963aae437809881f67aee3373e5d35b5aa2348f";
   (* tezos@4.12.0+domains currently doesn't work, because it requires
    * opam 2.1 and our builds are using opam 2.0.8.
