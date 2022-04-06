@@ -40,7 +40,8 @@ let repos =
 
 let cmd =
   let doc = "Test ocaml-multicore-ci on a local Git clone" in
-  Term.(term_result (const main $ Current.Config.cmdliner $ Current_web.cmdliner $ repos)),
-  Term.info "ocaml-multicore-ci-local" ~doc
+  let term = Term.(term_result (const main $ Current.Config.cmdliner $ Current_web.cmdliner $ repos)) in
+  let info = Cmd.info "ocaml-multicore-ci-local" ~doc in
+  Cmd.v info term
 
-let () = Term.(exit @@ eval cmd)
+let () = exit @@ Cmd.eval cmd

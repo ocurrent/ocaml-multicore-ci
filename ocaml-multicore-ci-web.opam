@@ -13,7 +13,7 @@ depends: [
   "current_rpc"
   "current_ansi"
   "prometheus-app" {>= "1.0"}
-  "cmdliner"
+  "cmdliner" {>= "1.1.0"}
   "lwt"
   "lwt_ppx"
   "cohttp-lwt-unix" {>= "2.2.0"}

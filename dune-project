@@ -27,6 +27,7 @@
   (mirage-crypto-rng (>= 0.8.7))
   (logs (>= 0.7.0))
   (fmt (>= 0.8.7))
+  (cmdliner (>= 1.1.0))
   current_git
   current_github
   current_docker
@@ -70,7 +71,7 @@
   current_rpc
   current_ansi
   (prometheus-app (>= 1.0))
-  cmdliner
+  (cmdliner (>= 1.1.0))
   lwt
   lwt_ppx
   (cohttp-lwt-unix (>= 2.2.0))

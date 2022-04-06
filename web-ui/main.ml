@@ -125,7 +125,8 @@ let docroot =
 
 let cmd =
   let doc = "A web front-end for Ocaml-Multicore-CI" in
-  Term.(const main $ port $ backend_cap $ admin_service_uri $ docroot $ Prometheus_unix.opts),
-  Term.info "ocaml-multicore-ci-web" ~doc
+  let term = Term.(const main $ port $ backend_cap $ admin_service_uri $ docroot $ Prometheus_unix.opts) in
+  let info = Cmd.info "ocaml-multicore-ci-web" ~doc in
+  Cmd.v info term
 
-let () = Term.(exit @@ eval cmd)
+let () = exit @@ Cmd.eval cmd
