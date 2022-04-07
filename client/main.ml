@@ -214,7 +214,9 @@ let cmd =
     | Error `Capnp ex -> Fmt.epr "%a@." Capnp_rpc.Error.pp ex; exit 1
     | Error `Msg m -> Fmt.epr "%s@." m; exit 1
   in
-  Term.(const main $ cap $ repo $ target $ variant $ job_op),
-  Term.info "ocaml-multicore-ci" ~doc
+  let term = Term.(const main $ cap $ repo $ target $ variant $ job_op) in
+  let info = Cmd.info "ocaml-multicore-ci" ~doc in
+  Cmd.v info term
 
-let () = Term.(exit @@ eval cmd)
+let () = 
+  exit @@ Cmd.eval cmd

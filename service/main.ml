@@ -137,7 +137,7 @@ let github_app_id =
 
 let cmd ~with_github =
   let doc = "Build OCaml projects on GitHub" in
-  Term.(
+  let term = Term.(
     let gh_cmd = if with_github then
       const (fun x -> Some x) $ Current_github.App.cmdliner
     else
@@ -146,13 +146,14 @@ let cmd ~with_github =
     term_result (
       const main $ Current.Config.cmdliner $ Current_web.cmdliner $
       gh_cmd $
-      capnp_address $ Current_github.Auth.cmdliner $ submission_service)),
-  Term.info "ocaml-multicore-ci" ~doc
+      capnp_address $ Current_github.Auth.cmdliner $ submission_service)) in
+  let info = Cmd.info "ocaml-multicore-ci" ~doc in
+  Cmd.v info term
 
-let () = Term.(
-  let with_github = match eval_peek_opts github_app_id with
+let () = 
+  let with_github = match Cmd.eval_peek_opts github_app_id with
   | (None, _) -> false
   | (Some _, _) -> true
   in
-  eval (cmd ~with_github) |> exit
-)
+  Cmd.eval (cmd ~with_github) |> exit
+

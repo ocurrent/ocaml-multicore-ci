@@ -1,6 +1,6 @@
-FROM ocaml/opam:debian-10-ocaml-4.10 AS build
+FROM ocaml/opam:debian-11-ocaml-4.13 AS build
 RUN sudo apt-get update && sudo apt-get install libev-dev libffi-dev capnproto m4 pkg-config libsqlite3-dev libgmp-dev graphviz -y --no-install-recommends
-RUN cd ~/opam-repository && git pull origin -q master && git reset --hard 0d21971a49e7244d38852e71521b07736976ec97 && opam update
+RUN cd ~/opam-repository && git pull origin -q master && git reset --hard 66439f55a0baae1a0dba017331e9a46b07f006fd && opam update
 COPY --chown=opam \
 	ocurrent/current_docker.opam \
 	ocurrent/current_github.opam \
@@ -36,11 +36,11 @@ RUN opam pin add -yn current_docker.dev "./ocurrent" && \
     opam pin add -yn dockerfile-opam.dev "./ocaml-dockerfile" && \
     opam pin add -yn ocluster-api.dev "./ocluster"
 COPY --chown=opam ocaml-multicore-ci-service.opam ocaml-multicore-ci-api.opam ocaml-multicore-ci-solver.opam /src/
-RUN opam install -y --deps-only .
+RUN opam-2.1 install -y --deps-only .
 ADD --chown=opam . .
-RUN opam config exec -- dune build ./_build/install/default/bin/ocaml-multicore-ci-service
+RUN opam-2.1 config exec -- dune build ./_build/install/default/bin/ocaml-multicore-ci-service
 
-FROM debian:10
+FROM debian:11
 RUN apt-get update && apt-get install libev4 openssh-client curl gnupg2 dumb-init git graphviz libsqlite3-dev ca-certificates netbase -y --no-install-recommends
 RUN curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add -
 RUN echo 'deb [arch=amd64] https://download.docker.com/linux/debian buster stable' >> /etc/apt/sources.list
