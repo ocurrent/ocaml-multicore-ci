@@ -58,8 +58,11 @@
   ocaml-multicore-ci-api
   conf-libev
   (opam-0install (>= "0.2"))
-  (git-unix (>= 3.2.0))
-  (capnp-rpc-unix (>= 1.2))))
+  (git-unix (>= 3.8.0))
+  (capnp-rpc-unix (>= 1.2)))
+ (conflicts
+  (carton (< 0.4.2))) ; workaround for mirage/ocaml-git#514
+)
 (package
  (name ocaml-multicore-ci-web)
  (synopsis "Web-server frontend for ocaml-multicore-ci")
@@ -67,7 +70,7 @@
  (depends
   (yojson (>= 1.7.0))
   (logs (>= 0.7.0))
-  (fmt (>= 0.8.7))
+  (fmt (>= 0.8.9))
   current_rpc
   current_ansi
   (prometheus-app (>= 1.0))
@@ -88,7 +91,7 @@
  (synopsis "Command-line client for ocaml-multicore-ci")
  (depends
   (logs (>= 0.7.0))
-  (fmt (>= 0.8.7))
+  (fmt (>= 0.8.9))
   current_rpc
   (capnp-rpc-unix (>= 1.2))
   ocaml-multicore-ci-api
