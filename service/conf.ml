@@ -85,7 +85,8 @@ let platforms =
   let make_release ?arch ov =
     let distro = DD.tag_of_distro master_distro in
     let ov = OV.without_patch ov in
-    v ?arch (OV.to_string ov) distro ov in
+    v ?arch (OV.to_string ov) distro ov 
+  in
   match target with
   | `Mainline -> begin
     match profile with
@@ -97,28 +98,46 @@ let platforms =
         let ovs = List.rev OV.Releases.recent @ OV.Releases.unreleased_betas in
         List.map make_release ovs @ distros
     | `Dev ->
-        let ovs = List.map OV.of_string_exn ["4.11"; "4.10"; "4.03"] in
+        let ovs = List.map OV.of_string_exn ["4.12";"4.11"; "4.10"; "4.03"] in
         List.map make_release ovs @ [make_release ~arch:`I386 (List.hd ovs)]
     end
   | `Multicore ->
-    let ovs = List.map OV.of_string_exn ["5.00"] in
+    let ovs = List.map OV.of_string_exn ["5.00";"4.12"] in
     List.map make_release ovs
 
 let opam_repository_repos = [
   `Mainline, ({ Github.Repo_id.owner="ocaml"; name="opam-repository" }, "master");
-  `MulticoreTezos, ({ Github.Repo_id.owner="ocaml-multicore"; name="tezos-opam-repository" }, "5.00.0+trunk")
+  `MulticoreTezos, ({ Github.Repo_id.owner="ocaml-multicore"; name="tezos-opam-repository" }, "5.00.0+trunk");
+  `Sandmark, ({Github.Repo_id.owner="moyodiallo"; name="sandmark-opam-repository"}, "master")
 ]
+
+let github_chosen_repos repos =
+  repos |> 
+  List.map (fun r ->
+    let (repo, branch) = List.assoc r opam_repository_repos
+    in Github.Api.Anonymous.head_of repo (`Ref ("refs/heads/" ^ branch))) |>
+  Current.list_seq
 
 let opam_repository_commits =
   let chosen_repos = match target with
   | `Mainline -> [`Mainline]
+  | `Multicore -> [`Mainline]
+  in
+  chosen_repos |> github_chosen_repos
+    
+let tezos_opam_repository_commits = 
+  let chosen_repos = match target with
+  | `Mainline -> [`Mainline]
   | `Multicore -> [`Mainline; `MulticoreTezos]
   in
-  chosen_repos |>
-    List.map (fun r ->
-      let (repo, branch) = List.assoc r opam_repository_repos
-      in Github.Api.Anonymous.head_of repo (`Ref ("refs/heads/" ^ branch))) |>
-    Current.list_seq
+  chosen_repos |> github_chosen_repos
+
+let sandmark_opam_repository_commits =
+  let chosen_repos = match target with
+  | `Mainline -> [`Mainline]
+  | `Multicore -> [`Mainline; `Sandmark]
+  in
+  chosen_repos |> github_chosen_repos
 
 let fixed_repos = [
   "https://github.com/AbsInt/CompCert";
@@ -135,7 +154,102 @@ let fixed_repos = [
    *
    * "https://github.com/ocaml-multicore/tezos@4.12.0+domains"; *)
   "https://github.com/ocsigen/lwt@5.4.1";
+  "https://github.com/ocaml-community/biniou.git@1.2.1";
+
+  (*Some ocaml-bench/sandmark repos that don't have to in a specific
+  * opam_repository_commits *)
+  "https://github.com/OCamlPro/alt-ergo.git@2.3.2"; (*also alt-ergo-lib & alt-ergo-parsers*) (*!! not "origin/version convention"*)
+  "http://erratique.ch/repos/astring.git@v0.8.5";
+  "https://github.com/inhabitedtype/bigstringaf.git@0.6.1";
+  "https://github.com/mirage/checkseum.git@v0.2.1";
+  "https://github.com/coq/coq.git"; (*also coq-core; coq-stdlib*)
+  "https://github.com/ocaml-community/cppo.git@v1.6.7";
+  "http://github.com/ocamllabs/ocaml-ctypes.git@0.15.0";
+  "https://github.com/mirage/decompress.git@v1.1.0";
+  "https://github.com/mirage/digestif.git@v1.0.0";
+  "https://erratique.ch/repos/fmt.git@v0.8.9";
+  "https://github.com/mirage/index.git@1.3.0";
+  "https://github.com/ocamllabs/ocaml-integers.git@0.4.0";
+  "https://github.com/mirage/irmin.git@2.4.0"; (*also irmin-layers & irmin-pack & ppx-irmin*)
+  "https://erratique.ch/repos/logs.git@v0.7.0";
+  "https://github.com/ocsigen/lwt.git@5.4.0";
+  "https://gitlab.inria.fr/fpottier/menhir.git@release-branch-20200612";(*also menhirLib & menhirSdk*)
+  "https://erratique.ch/repos/mtime.git@v1.2.0";
+  "https://github.com/ocaml/num.git@v1.3";
+  "https://github.com/backtracking/ocamlgraph.git@2.0.0";
+  "https://github.com/mirage/optint.git@v0.0.4";
+  "https://github.com/ocaml-ppx/ppx_derivers.git@1.2.1";
+  "https://github.com/ocaml-ppx/ppx_deriving.git@v5.2.1";
+  "https://github.com/ocaml-ppx/ppx_deriving_yojson.git@v3.6.1";
+  "https://github.com/mirage/repr.git@0.2.1";(*also ppx-repr*)
+  "https://erratique.ch/repos/rresult.git@v0.6.0";
+  "https://github.com/janestreet/stdio.git@v0.14";
+  "https://github.com/ocaml/stdlib-shims.git@0.1.0";
+  "https://erratique.ch/repos/topkg.git@v1.0.3";
+  "https://github.com/ocaml/Zarith.git@release-1.10";
+  "https://github.com/mirage/ocaml-uri.git@v4.1.0";
+  "https://github.com/ACoquereau/psmt2-frontend.git@0.2";
+  (*and conf-findutils; conf-gmp; conf-m4; conf-perl; conf-pkg-config; *)
 ]
+
+let tezos_opam_repository_repos = [
+  "https://github.com/ocaml-multicore/tezos@5963aae437809881f67aee3373e5d35b5aa2348f"
+]
+
+let sandmark_opam_repository_repos  = [
+  (*"base-bigarray";"base-domains";"base-threads";base-unix; ocaml-config*)
+  "https://github.com/inhabitedtype/angstrom.git";
+  "https://github.com/backtracking/bheap.git";
+  "https://github.com/mjambon/biniou.git";
+  "http://erratique.ch/repos/bos.git";
+  "https://github.com/coq/coq.git";
+  "https://github.com/ocaml-community/cppo.git";
+  "https://github.com/ocaml-dune/csexp.git";
+  "https://github.com/cubicle-model-checker/cubicle.git";
+  "https://github.com/ocaml-multicore/domainslib.git";
+  "https://github.com/ocaml/dune.git@main"; (*also "dune-configurator" & "dune-private-libs" & "jbuilder"*)
+  "https://github.com/mjambon/easy-format.git";
+  "https://github.com/mirage/either.git@main";
+  "https://erratique.ch/repos/fpath.git";
+  "https://github.com/Frama-C/Frama-C-snapshot.git@latest";
+  "https://github.com/achlipala/frap.git";
+  "https://github.com/mirage/index.git@main";
+  "https://github.com/ocamllabs/ocaml-integers.git";
+  "https://github.com/dgllghr/interval-map.git@main";
+  "https://github.com/mirage/irmin.git@main"; (*only "irmin-layers" & "irmin-pack"*)
+  "https://github.com/ocsigen/js_of_ocaml.git"; (*only "js_of_ocaml-compiler"*)
+  "https://github.com/kayceesrk/kcas.git";
+  "https://github.com/ocaml-multicore/lockfree.git";
+  "https://github.com/ocsigen/lwt.git";
+  "https://erratique.ch/repos/mtime.git";
+  "https://github.com/dbuenzli/nbcodec";
+  "https://github.com/janestreet/ocaml-compiler-libs.git";
+  "https://github.com/ocaml-ppx/ocaml-migrate-parsetree.git";
+  "https://github.com/ocaml-ppx/ocaml-syntax-shims.git";
+  "https://github.com/ocaml/ocamlbuild.git";
+  "https://github.com/ocaml/ocamlfind.git";
+  "https://github.com/backtracking/ocamlgraph.git";
+  "https://github.com/owlbarn/owl.git";
+  "https://github.com/ocaml-ppx/ppx_deriving.git";
+  "https://github.com/ocaml-ppx/ppx_deriving_yojson.git";
+  "https://github.com/mirage/repr.git@main"; (*also ppx-repr*)
+  "https://github.com/ocaml-ppx/ppx_tools.git";
+  "https://github.com/jeremiedimino/ppxfind.git";
+  "https://github.com/ocaml-ppx/ppxlib.git@main";
+  "https://github.com/CraigFe/progress.git@main";
+  "http://erratique.ch/repos/react.git";
+  "https://github.com/janestreet/result.git";
+  "https://github.com/mirage/semaphore-compat.git@main";
+  "https://github.com/ocaml/stdlib-shims.git";
+  "https://github.com/cryptosense/terminal_size.git";
+  "https://github.com/mirage/ocaml-uri.git";
+  "https://erratique.ch/repos/uuidm.git";
+  "http://erratique.ch/repos/uutf.git"
+]
+
+let sandmark_opam_repository_repos_build_mechanism_for_package package =
+  match package with
+  | _ -> `Script ["opam install -t "^package]
 
 let build_mechanism_for_package package =
   match package with
@@ -143,12 +257,14 @@ let build_mechanism_for_package package =
   | "CompCert" -> `Script ["sudo apt-get install -y libgmp-dev"; "opam install coq menhir"; "./configure x86_64-linux"; "make -j 4 all"; "make -C test all test"]
   | "coq" -> `Script ["sudo apt-get install -y python3"; "opam install menhir ounit2"; "./configure -local -no-ask"; "make world"; "bash -c 'export PRINT_LOGS=1; make test-suite'"]
   | "ocaml-multicore" -> `Script []
+  | "ocaml" -> `Script []
   | "tezos" -> `Script ["sudo apt-get install -y rsync git m4 build-essential patch unzip wget pkg-config libgmp-dev libev-dev libhidapi-dev libffi-dev opam jq zlib1g-dev bc autoconf software-properties-common"; "gpg --keyserver keyserver.ubuntu.com --recv-keys BA6932366A755776"; "gpg --export BA6932366A755776 | sudo apt-key add -"; "sudo add-apt-repository 'deb http://ppa.launchpad.net/deadsnakes/ppa/ubuntu bionic main'"; "sudo apt-get update"; "sudo apt-get install -y python3.9 python3.9-dev python3.9-distutils python3-pip virtualenv python3.9-venv"; "wget https://sh.rustup.rs/rustup-init.sh"; "chmod +x rustup-init.sh"; "./rustup-init.sh --profile minimal --default-toolchain 1.52.1 -y"; "opam install dune"; "curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py | python3.9 -"; "python3.9 -m pip install --upgrade setuptools"; "bash -c 'source $HOME/.poetry/env; source $HOME/.cargo/env; make build-deps && eval $(opam env); PATH=\"$HOME/.local/bin:$PATH\"; make -C tests_python install-dependencies && make && make test'"]
   | _ -> `Build
 
 let is_compiler_package package =
   match package with
   | "ocaml-multicore" -> true
+  | "ocaml" -> true
   | _ -> false
 
 (*
@@ -165,3 +281,36 @@ let is_compiler_blocklisted ov package =
     | _ -> false
   end
   | _ -> false
+
+
+type conf = {
+  opam_repository_commits  : Current_git.Commit_id.t list Current.t
+  ; fixed_repos : string list
+  ; build_mechanism_for_package: string -> [`Build | `Script of string list | `Make of string list]
+  ; is_compiler_package: string -> bool
+  ; is_compiler_blocklisted: OV.t -> string -> bool
+}
+
+let configs = [
+  {
+    opam_repository_commits = opam_repository_commits
+    ; fixed_repos = fixed_repos
+    ; build_mechanism_for_package = build_mechanism_for_package
+    ; is_compiler_package = is_compiler_package
+    ; is_compiler_blocklisted = is_compiler_blocklisted
+  };
+  {
+    opam_repository_commits = tezos_opam_repository_commits
+    ; fixed_repos = tezos_opam_repository_repos
+    ; build_mechanism_for_package = build_mechanism_for_package
+    ; is_compiler_package = is_compiler_package
+    ; is_compiler_blocklisted = is_compiler_blocklisted
+  };
+  {
+    opam_repository_commits = sandmark_opam_repository_commits
+    ; fixed_repos = sandmark_opam_repository_repos
+    ; build_mechanism_for_package = sandmark_opam_repository_repos_build_mechanism_for_package
+    ; is_compiler_package = is_compiler_package
+    ; is_compiler_blocklisted = is_compiler_blocklisted
+  }
+]

@@ -10,7 +10,7 @@ let () =
 let make_pipeline repos =
   let repos = repos |> List.map (fun repo -> Current_git.Local.v (Fpath.v repo)) in
   match repos with
-  | [] -> Pipeline.local_test_fixed ~solver
+  | [] -> Pipeline.local_test_fixed ~solver Conf.configs
   | [repo] -> Pipeline.local_test ~solver repo
   | _ -> Pipeline.local_test_multiple ~solver repos
 

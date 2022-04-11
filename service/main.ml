@@ -92,7 +92,8 @@ let main config mode _app capnp_address github_auth submission_uri : ('a, [`Msg 
   Lwt_main.run begin
     run_capnp capnp_address >>= fun (vat, rpc_engine_resolver) ->
     let ocluster = Option.map (Capnp_rpc_unix.Vat.import_exn vat) submission_uri in
-    let engine = Current.Engine.create ~config (Pipeline.v ?ocluster ~solver) in
+    let confs = Conf.configs in
+    let engine = Current.Engine.create ~config (Pipeline.v ?ocluster ~solver ~confs) in
     rpc_engine_resolver |> Option.iter (fun r -> Capability.resolve_ok r (Api_impl.make_ci ~engine));
     let authn = Option.map Current_github.Auth.make_login_uri github_auth in
     let has_role =
