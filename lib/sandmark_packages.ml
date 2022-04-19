@@ -71,7 +71,7 @@ module Op = struct
   module Key = struct
     type t = {
       repo_url: string;
-      commit: Git.Commit.t
+      commit: Git.Commit.t;
     }
     let digest t =
       Fmt.str "%s / %a / extracted_packages"
@@ -173,7 +173,8 @@ module BC = Current_cache.Output(Op)
 
 let v ~repo_url commit  opam_repository_commit =
   let label = Repo_url_utils.owner_slash_name_from_url repo_url in
-  Current.component "pacakges from@ %s@" label |>
+  Current.component "pacakges from@.%s" label |>
   let> commit = commit
+  and> opam_repository_commit = opam_repository_commit
   in
-  BC.set No_context { repo_url; commit } opam_repository_commit
+  BC.set No_context { repo_url; commit} opam_repository_commit
