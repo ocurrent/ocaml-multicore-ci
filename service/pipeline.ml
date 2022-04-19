@@ -202,7 +202,7 @@ let build_with_compiler ?ocluster ~solver ~compiler_gref ~compiler_commit ?label
   let recorded_builds = record_builds ~repo_url ~hash ~builds ~summary in
   Current.ignore_value (recorded_builds)
 
-let build_from_clone ?ocluster ~solver ~(conf:Conf.conf) (repo_clone: (string * Git.Commit.t Current.t)) =
+let rec build_from_clone ?ocluster ~solver ~(conf:Conf.conf) (repo_clone: (string * Git.Commit.t Current.t)) =
   let (repo_url, commit) = repo_clone in
   if is_compiler_from_repo_url conf repo_url
   then
@@ -231,6 +231,15 @@ let build_from_clone ?ocluster ~solver ~(conf:Conf.conf) (repo_clone: (string * 
       )
     in
     Current.all downstream_builds
+  else if Conf.is_sandmark repo_url then
+    let opam_repository_commit = Git.clone ~schedule:daily ~gref:"master" "https://github.com/ocaml/opam-repository.git" in
+    let packages = Sandmark_packages.v ~repo_url commit opam_repository_commit in
+    Current.component "cascade" |>
+    let** packages = packages in
+    List.map (fun (pack:Sandmark_packages.sandmark_dep) ->
+      let clone = Git.clone ~schedule:daily ~gref:pack.version pack.repo_url in
+      build_from_clone ?ocluster ~solver ~conf (pack.repo_url,clone)) packages.packages
+      |> Current.all
   else
     let (_, build) =
       build_from_clone_with_compiler ?ocluster ~solver ~conf repo_clone
