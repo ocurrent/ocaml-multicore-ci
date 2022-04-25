@@ -66,7 +66,7 @@ type sandmark_dep = {
 
 module Op = struct
   type t = No_context
-  let id = "sandmark_packages"
+  let id = "sandmark-packages"
 
   module Key = struct
     type t = {
@@ -102,8 +102,8 @@ module Op = struct
     key : sandmark commit
     commit: opam-repository commit
 
-    there's two(2) different opam-repository where the git url where found. 
-    If the url is not found in sandamrk opam-repository, it's searched in the default 
+    there's two(2) different opam-repository where the git url where found.
+    If the url is not found in sandamrk opam-repository, it's searched in the default
     opam-repository.
 
   *)
@@ -114,32 +114,32 @@ module Op = struct
     let dev_packages_name_version = packages_in_depends_from_path (Fpath.to_string dev_opam_path) in
     let sand_opam_repository_path = Fpath.to_string (Fpath.(path / "dependencies" / "packages")) in
     let opam_files = opam_files  sand_opam_repository_path in
-    let pack_packages_name_version = 
+    let pack_packages_name_version =
       List.map (fun file_path -> name_version_url_from_path file_path) opam_files
     in
     Git.with_checkout ~job commit @@ fun path ->
     let default_opam_repository_path = Fpath.to_string Fpath.(path / "packages") in
     let dev_repo (name,version) =
       let repo = dev_repo_from_opam_repository sand_opam_repository_path name version in
-      let repo = 
+      let repo =
         if String.equal repo "" then
           dev_repo_from_opam_repository default_opam_repository_path name version
         else repo
       in
       (name,version,repo)
     in
-    let packages = 
+    let packages =
       pack_packages_name_version @
-      List.map (fun name_version -> dev_repo name_version) dev_packages_name_version 
+      List.map (fun name_version -> dev_repo name_version) dev_packages_name_version
     in
     let _ = Current.Job.log job "%s" "Founded packages:" in
-    let _ = List.iter (fun (n,v,r) -> 
-      Current.Job.log  job 
-        "%s@; version= %s@; repo_url= %s" 
-        n (if v = "" then "None" else v) (if "" = r then "None" else r)) 
-      packages 
+    let _ = List.iter (fun (n,v,r) ->
+      Current.Job.log  job
+        "%s@; version= %s@; repo_url= %s"
+        n (if v = "" then "None" else v) (if "" = r then "None" else r))
+      packages
     in
-    let new_package (name,version,repo_url)  (pack_map,pack_no_dev_repo) = 
+    let new_package (name,version,repo_url)  (pack_map,pack_no_dev_repo) =
       if String.equal "" repo_url then
         pack_map,{version= version; repo_url= repo_url; packages = [name] }::pack_no_dev_repo
       else
@@ -147,8 +147,8 @@ module Op = struct
           let pack = Map_url.find repo_url pack_map in
           (
             Map_url.add repo_url {
-                version= version; 
-                repo_url= repo_url; 
+                version= version;
+                repo_url= repo_url;
                 packages= if List.mem name pack.packages then pack.packages else pack.packages@[name]
               } pack_map
           , pack_no_dev_repo)
@@ -161,7 +161,6 @@ module Op = struct
     let packages,packages_no_dev_repo = List.fold_left (fun map p -> new_package p map) (Map_url.empty,[]) packages in
     let packages = Map_url.fold (fun _ pack l -> pack::l) packages [] in
     Lwt.return (Ok {Outcome.packages= packages; packages_missing_dev_repo=packages_no_dev_repo})
-   
 
   let pp f (key, _) =
     Fmt.pf f "Extracting sandmark packages from %s" key.Key.repo_url
