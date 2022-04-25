@@ -15,11 +15,12 @@ let opamfile_from_path path =
 
 let name_version_url_from_path path =
   let opam = opamfile_from_path path in
-  let url =  OpamUrl.base_url (Option.value opam.dev_repo ~default:OpamUrl.empty) in
-  let name,version = match opam.name,opam.version with
-  | Some n, Some v -> OpamPackage.Name.to_string n, OpamPackage.Version.to_string v
-  | _,_ -> assert false
-  in name,version,if String.equal url (OpamUrl.base_url OpamUrl.empty) then "" else url
+  let repo_url  url version = String.concat "@" [OpamUrl.base_url url; OpamPackage.Version.to_string version] in
+  let name,version,repo = match opam.name, opam.version, opam.dev_repo with
+  | Some n, Some v, Some r -> OpamPackage.Name.to_string n, OpamPackage.Version.to_string v, repo_url r v
+  | Some n, Some v, None   -> OpamPackage.Name.to_string n, OpamPackage.Version.to_string v, ""
+  | _,_,_ -> assert false
+  in name,version,repo
 
 
 let opamfile_from_opam_repository opam_repository_path name version =
@@ -29,15 +30,14 @@ let opamfile_from_opam_repository opam_repository_path name version =
 
 let dev_repo_from_opam_repository opam_repository_path name version =
   let path = opamfile_from_opam_repository opam_repository_path name version in
-  if not(String.equal ""  path) then
+  if String.equal ""  path then ""
+  else
     let opam = opamfile_from_path path in
-    let dev_ =
-      if Option.is_some opam.dev_repo then
-        OpamUrl.base_url (Option.value opam.dev_repo ~default:OpamUrl.empty)
-      else ""
-    in dev_
-  else ""
-
+    let url_repo =
+      match opam.dev_repo, opam.version with
+      | Some r, Some v -> String.concat "@" [OpamUrl.base_url r; OpamPackage.Version.to_string v]
+      | _ -> ""
+    in url_repo
 
 let packages_in_depends_from_path path  =
   let version f =
@@ -135,7 +135,7 @@ module Op = struct
     let _ = Current.Job.log job "%s" "Founded packages:" in
     let _ = List.iter (fun (n,v,r) -> 
       Current.Job.log  job 
-        "%s@; version= %s@; dev-repo= %s" 
+        "%s@; version= %s@; repo_url= %s" 
         n (if v = "" then "None" else v) (if "" = r then "None" else r)) 
       packages 
     in

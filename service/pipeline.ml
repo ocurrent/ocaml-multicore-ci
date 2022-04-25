@@ -48,10 +48,10 @@ let get_job_id x =
 
 let remove_version_re = Str.regexp "\\..*$"
 
-let build_mechanism_for_selection ~selection =
+let build_mechanism_for_selection ~selection ~(conf:Conf.conf) =
     let mechanisms = selection.Selection.packages |> List.map (fun package ->
         let package_raw = Str.global_replace remove_version_re "" package in
-        (package, Conf.build_mechanism_for_package package_raw)
+        (package, conf.build_mechanism_for_package package_raw)
     ) in
     let (_, others) = mechanisms |> List.partition (fun (_, mechanism) -> mechanism = `Build) in
     match others with
@@ -60,20 +60,20 @@ let build_mechanism_for_selection ~selection =
     | [(_, (`Script _ as mech))] -> mech
     | _ -> `Build
 
-let selection_to_opam_spec ~analysis selection =
+let selection_to_opam_spec ~analysis ~conf selection =
   let label = Variant.to_string selection.Selection.variant in
-  let build_mechanism = build_mechanism_for_selection ~selection in
+  let build_mechanism = build_mechanism_for_selection ~selection ~conf in
   Spec.opam ~label ~selection ~analysis build_mechanism
 
-let package_and_selection_to_opam_spec ~analysis ~package selection =
+let package_and_selection_to_opam_spec ~analysis ~package ~(conf:Conf.conf) selection =
   let label = Variant.to_string selection.Selection.variant in
-  let build_mechanism = Conf.build_mechanism_for_package package in
+  let build_mechanism = conf.build_mechanism_for_package package in
   Spec.opam ~label ~selection ~analysis build_mechanism
 
-let make_opam_specs analysis =
+let make_opam_specs ~conf analysis =
   match Analyse.Analysis.selections analysis with
   | `Not_opam (package, selections) ->
-    selections |> List.map (package_and_selection_to_opam_spec ~analysis ~package)
+    selections |> List.map (package_and_selection_to_opam_spec ~analysis ~package ~conf)
   | `Opam_monorepo config ->
     let lint_selection = Opam_monorepo.selection_of_config config in
     [
@@ -83,7 +83,7 @@ let make_opam_specs analysis =
   | `Opam_build selections ->
 (*    let lint_selection = List.hd selections in*)
     let builds =
-      selections |> List.map (selection_to_opam_spec ~analysis)
+      selections |> List.map (selection_to_opam_spec ~analysis ~conf)
     and lint =
       [
 (*        Spec.opam ~label:"(lint-fmt)" ~selection:lint_selection ~analysis (`Lint `Fmt);*)
@@ -105,7 +105,7 @@ let place_build ~ocluster ~repo ?test_repo ?compiler_commit ~source spec =
   and+ spec = spec in
   Spec.label spec, result
 
-let place_builds ?ocluster ~repo ?test_repo ?compiler_gref ?compiler_commit ?label ~analysis source =
+let place_builds ?ocluster ~repo ?test_repo ?compiler_gref ?compiler_commit ?label ~analysis ~conf source =
   Current.with_context analysis @@ fun () ->
   let specs =
     let+ analysis = Current.state ~hidden:true analysis in
@@ -114,7 +114,7 @@ let place_builds ?ocluster ~repo ?test_repo ?compiler_gref ?compiler_commit ?lab
         (* If we don't have the analysis yet, just use the empty list. *)
         []
     | Ok analysis ->
-      make_opam_specs analysis
+      make_opam_specs ~conf analysis
   in
   let label = tidy_label_opt label in
   let+ builds = specs |> Current.list_map ?label (module Spec) (place_build ~ocluster ~repo ?test_repo ?compiler_commit ~source)
@@ -149,10 +149,10 @@ let local_test ?label ~solver repo () =
   let repo = Current.return { Github.Repo_id.owner = "local"; name = "test" } in
   let repo_str = Current.map (Fmt.to_to_string Github.Repo_id.pp) repo in
   let get_is_compiler_blocklisted _ _ = false in
-  let conf = List.hd Conf.configs in
+  let conf = Conf.default_conf in
   let analysis = analysis_component ?label ~solver ~is_compiler:false ~get_is_compiler_blocklisted ~repo:repo_str ~conf src in
   Current.component "summarise" |>
-  let> results = place_builds ~repo:repo_str ?label ~analysis src in
+  let> results = place_builds ~repo:repo_str ?label ~analysis ~conf:Conf.default_conf src in
   let result = summarise_builds results in
   Current_incr.const (result, None)
 
@@ -178,7 +178,7 @@ let clone_fixed_repos fixed_repos : (string * Git.Commit.t Current.t) list =
 let analyse_build_summarise ?ocluster ~solver ~repo ~is_compiler ?compiler_gref ?compiler_commit ?label ~conf commit =
   let is_compiler_blocklisted = is_compiler_blocklisted conf in
   let analysis = analysis_component ~solver ?label ~is_compiler ~get_is_compiler_blocklisted:is_compiler_blocklisted ~repo ~conf commit in
-  let builds = place_builds ?ocluster ~repo ?compiler_gref ?compiler_commit ?label ~analysis commit in
+  let builds = place_builds ?ocluster ~repo ?compiler_gref ?compiler_commit ?label ~analysis ~conf commit in
   (builds, summarise_builds_current builds)
 
 let build_from_clone_with_compiler ?ocluster ~solver ?compiler_commit ~conf repo_clone =
@@ -197,7 +197,7 @@ let build_with_compiler ?ocluster ~solver ~compiler_gref ~compiler_commit ?label
   let cache_hint = Current.map (fun c -> Git.Commit_id.repo (Git.Commit.id c)) compiler_commit in
   let compiler_commit_id = Current.map Git.Commit.id compiler_commit in
   let analysis = analysis_with_compiler_component ~solver ?label ~compiler_commit:compiler_commit_id ~conf commit in
-  let builds = place_builds ?ocluster ~repo:cache_hint ~test_repo:repo_url ~compiler_gref ~compiler_commit ?label ~analysis commit in
+  let builds = place_builds ?ocluster ~repo:cache_hint ~test_repo:repo_url ~compiler_gref ~compiler_commit ?label ~analysis ~conf commit in
   let summary = summarise_builds_current builds in
   let recorded_builds = record_builds ~repo_url ~hash ~builds ~summary in
   Current.ignore_value (recorded_builds)
@@ -236,10 +236,8 @@ let rec build_from_clone ?ocluster ~solver ~(conf:Conf.conf) (repo_clone: (strin
     let packages = Sandmark_packages.v ~repo_url commit opam_repository_commit in
     Current.component "cascade" |>
     let** packages = packages in
-    List.map (fun (pack:Sandmark_packages.sandmark_dep) ->
-      let clone = Git.clone ~schedule:daily ~gref:pack.version pack.repo_url in
-      build_from_clone ?ocluster ~solver ~conf (pack.repo_url,clone)) packages.packages
-      |> Current.all
+    let repos = List.map (fun (pack: Sandmark_packages.sandmark_dep) -> pack.repo_url) packages.packages in
+    clone_fixed_repos repos |> List.map (build_from_clone ~solver ~conf) |> Current.all
   else
     let (_, build) =
       build_from_clone_with_compiler ?ocluster ~solver ~conf repo_clone

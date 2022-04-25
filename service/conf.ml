@@ -150,6 +150,9 @@ let fixed_repos = [
   "https://github.com/janestreet/core_kernel@v0.14.1";
   "https://github.com/mirage/irmin@2.9.0";
   "https://github.com/ocaml-batteries-team/batteries-included@v3.3.0";
+]
+
+let tezos_opam_repository_repos = [
   "https://github.com/ocaml-multicore/tezos@5963aae437809881f67aee3373e5d35b5aa2348f";
   (* tezos@4.12.0+domains currently doesn't work, because it requires
    * opam 2.1 and our builds are using opam 2.0.8.
@@ -159,17 +162,10 @@ let fixed_repos = [
   "https://github.com/ocaml-community/biniou.git@1.2.1";
 ]
 
-let tezos_opam_repository_repos = [
-  "https://github.com/ocaml-multicore/tezos@5963aae437809881f67aee3373e5d35b5aa2348f"
-]
-
 let sandmark_opam_repository_repos  = [
   "https://github.com/ocaml-bench/sandmark.git@main"
 ]
 
-let sandmark_opam_repository_repos_build_mechanism_for_package package =
-  match package with
-  | _ -> `Script ["opam install -t "^package]
 
 let build_mechanism_for_package package =
   match package with
@@ -177,7 +173,6 @@ let build_mechanism_for_package package =
   | "CompCert" -> `Script ["sudo apt-get install -y libgmp-dev"; "opam install coq menhir"; "./configure x86_64-linux"; "make -j 4 all"; "make -C test all test"]
   | "coq" -> `Script ["sudo apt-get install -y python3"; "opam install menhir ounit2"; "./configure -local -no-ask"; "make world"; "bash -c 'export PRINT_LOGS=1; make test-suite'"]
   | "ocaml-multicore" -> `Script []
-  | "ocaml" -> `Script []
   | "tezos" -> `Script ["sudo apt-get install -y rsync git m4 build-essential patch unzip wget pkg-config libgmp-dev libev-dev libhidapi-dev libffi-dev opam jq zlib1g-dev bc autoconf software-properties-common"; "gpg --keyserver keyserver.ubuntu.com --recv-keys BA6932366A755776"; "gpg --export BA6932366A755776 | sudo apt-key add -"; "sudo add-apt-repository 'deb http://ppa.launchpad.net/deadsnakes/ppa/ubuntu bionic main'"; "sudo apt-get update"; "sudo apt-get install -y python3.9 python3.9-dev python3.9-distutils python3-pip virtualenv python3.9-venv"; "wget https://sh.rustup.rs/rustup-init.sh"; "chmod +x rustup-init.sh"; "./rustup-init.sh --profile minimal --default-toolchain 1.52.1 -y"; "opam install dune"; "curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py | python3.9 -"; "python3.9 -m pip install --upgrade setuptools"; "bash -c 'source $HOME/.poetry/env; source $HOME/.cargo/env; make build-deps && eval $(opam env); PATH=\"$HOME/.local/bin:$PATH\"; make -C tests_python install-dependencies && make && make test'"]
   | _ -> `Build
 
@@ -208,19 +203,21 @@ let is_sandmark url = String.equal url "https://github.com/ocaml-bench/sandmark.
 type conf = {
   opam_repository_commits  : Current_git.Commit_id.t list Current.t
   ; fixed_repos : string list
-  ; build_mechanism_for_package: string -> [`Build | `Script of string list | `Make of string list]
+  ; build_mechanism_for_package: string -> [`Build | `Script of string list | `Make of string list | `Lint of [`Doc | `Fmt | `Opam]]
   ; is_compiler_package: string -> bool
   ; is_compiler_blocklisted: OV.t -> string -> bool
 }
 
+let default_conf = {
+  opam_repository_commits = opam_repository_commits
+  ; fixed_repos = fixed_repos
+  ; build_mechanism_for_package = build_mechanism_for_package
+  ; is_compiler_package = is_compiler_package
+  ; is_compiler_blocklisted = is_compiler_blocklisted
+}
+
 let configs = [
-  {
-    opam_repository_commits = opam_repository_commits
-    ; fixed_repos = fixed_repos
-    ; build_mechanism_for_package = build_mechanism_for_package
-    ; is_compiler_package = is_compiler_package
-    ; is_compiler_blocklisted = is_compiler_blocklisted
-  };
+  default_conf;
   {
     opam_repository_commits = tezos_opam_repository_commits
     ; fixed_repos = tezos_opam_repository_repos
@@ -231,7 +228,7 @@ let configs = [
   {
     opam_repository_commits = sandmark_opam_repository_commits
     ; fixed_repos = sandmark_opam_repository_repos
-    ; build_mechanism_for_package = sandmark_opam_repository_repos_build_mechanism_for_package
+    ; build_mechanism_for_package = build_mechanism_for_package
     ; is_compiler_package = is_compiler_package
     ; is_compiler_blocklisted = is_compiler_blocklisted
   }
