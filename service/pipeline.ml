@@ -232,12 +232,24 @@ let rec build_from_clone ?ocluster ~solver ~(conf:Conf.conf) (repo_clone: (strin
     in
     Current.all downstream_builds
   else if Conf.is_sandmark repo_url then
+    let commit_id_from_rev_parse (rev_parse:Sandmark_rev_parse.Op.Outcome.t Current.t) =
+      Current.component "commit_id" |>
+      let> rev_parse = rev_parse in
+      let repo, gref, hash = rev_parse.repo, rev_parse.gref, rev_parse.hash in
+      let commit_id = Git.Commit_id.v ~repo ~gref ~hash in Current.Primitive.const commit_id
+    in
     let opam_repository_commit = Git.clone ~schedule:daily ~gref:"master" "https://github.com/ocaml/opam-repository.git" in
     let packages = Sandmark_packages.v ~repo_url commit opam_repository_commit in
     Current.component "cascade" |>
     let** packages = packages in
     let repos = List.map (fun (pack: Sandmark_packages.sandmark_dep) -> pack.repo_url) packages.packages in
-    clone_fixed_repos repos |> List.map (build_from_clone ~solver ~conf) |> Current.all
+    clone_fixed_repos repos
+    |> List.map (fun (repo_url, commit) -> Repo_url_utils.url_gref_from_url repo_url, repo_url,commit)
+    |> List.map (fun ((url,gref), repo_url, commit) -> repo_url, Sandmark_rev_parse.v ~schedule:daily ~gref ~repo:url ~commit)
+    |> List.map (fun (repo_url,rev_parse) -> repo_url, commit_id_from_rev_parse rev_parse)
+    |> List.map (fun (repo_url,commit_id) -> repo_url, Git.fetch commit_id)
+    |> List.map (build_from_clone ~solver ~conf)
+    |> Current.all
   else
     let (_, build) =
       build_from_clone_with_compiler ?ocluster ~solver ~conf repo_clone
