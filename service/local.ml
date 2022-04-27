@@ -17,7 +17,7 @@ let make_pipeline repos =
 let main config mode repos : ('a, [`Msg of string]) result =
   let pipeline = make_pipeline repos in
   let engine = Current.Engine.create ~config pipeline in
-  let site = Current_web.Site.(v ~has_role:allow_all) ~name:"ocaml-multicore-ci-local" (Current_web.routes ~docroot:"ocurrent/static" engine) in
+  let site = Current_web.Site.(v ~has_role:allow_all) ~name:"ocaml-multicore-ci-local" (Current_web.routes engine) in
   Lwt_main.run begin
     Lwt.choose [
       Current.Engine.thread engine;

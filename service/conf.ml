@@ -64,6 +64,7 @@ type platform = {
 let pool_of_arch = function
 | `X86_64 | `I386 -> "linux-x86_64"
 | `Aarch32 | `Aarch64 -> "linux-arm64"
+| `S390x -> "linux-s390x"
 | `Ppc64le -> "linux-ppc64"
 
 let platforms =
@@ -73,17 +74,17 @@ let platforms =
   let master_distro = DD.resolve_alias DD.master_distro in
   let make_distro distro =
     let distro = DD.resolve_alias distro in
-    let label = DD.latest_tag_of_distro distro in
-    let tag = DD.tag_of_distro distro in
+    let label = DD.latest_tag_of_distro (distro :> DD.t) in
+    let tag = DD.tag_of_distro (distro :> DD.t) in
     let ov = OV.(Releases.latest |> with_just_major_and_minor) in
     if distro = master_distro then
       v label tag (OV.with_variant ov (Some "flambda")) ::
-      List.map (fun arch -> v ~arch label tag ov) (DD.distro_arches ov distro)
+      List.map (fun arch -> v ~arch label tag ov) (DD.distro_arches ov (distro :> DD.t))
     else
       [v label tag ov]
   in
   let make_release ?arch ov =
-    let distro = DD.tag_of_distro master_distro in
+    let distro = DD.tag_of_distro (master_distro :> DD.t) in
     let ov = OV.without_patch ov in
     v ?arch (OV.to_string ov) distro ov 
   in
