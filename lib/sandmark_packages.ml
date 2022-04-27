@@ -8,21 +8,17 @@ let repo_url_main_branch repo_url =
   let (url, _) = Repo_url_utils.url_gref_from_url repo_url in
   match url  with
   | "https://github.com/OCamlPro/alt-ergo.git"
-
   | "https://github.com/ocaml/dune.git"
-  | "git://github.com/ocaml-ppx/ppx_tools.git"
   | "https://github.com/ocaml-ppx/ppxlib.git"
   | "https://github.com/owlbarn/owl.git"
   | "https://github.com/Coquera/psmt2-frontend.git"
   | "https://github.com/CraigFe/progress.git"
-  | "git://github.com/dbuenzli/nbcodec"
   | "https://github.com/dgllghr/interval-map.git"
   | "https://github.com/mirage/either.git"
   | "https://github.com/mirage/index.git"
   | "https://github.com/mirage/irmin.git"
   | "https://github.com/mirage/semaphore-compat.git"
   | "https://github.com/mirage/repr.git" -> String.cat url "@main"
-
   | _ -> String.cat url "@master"
 
 let find_opam_files path = Bos.Cmd.(v "find" % path % "-name" % "opam")

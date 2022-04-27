@@ -53,7 +53,8 @@ module Op = struct
         fun x ->
           if String.equal x key.gref
             || String.equal x (String.cat "v" key.gref)
-            || String.equal x (String.cat "V" key.gref) then Some x else None) tags in
+            || String.equal x (String.cat "V" key.gref)
+            || String.equal x (String.cat "release-" key.gref) then Some x else None) tags in
       let gref = match tag with Some t -> t | None -> key.gref in
       let cmd = ["git"; "-C"; Fpath.to_string path; "rev-parse"; gref] in
       (Current.Process.check_output ~cancellable:true ~job ("", Array.of_list cmd) >|= Stdlib.Result.map String.trim) >>!= fun hash ->
