@@ -85,7 +85,7 @@ let platforms =
       [v label tag ov]
   in
   let make_release ?arch ov =
-    let distro = DD.tag_of_distro master_distro in
+    let distro = DD.tag_of_distro (master_distro :> DD.t) in
     let ov = OV.without_patch ov in
     v ?arch (OV.to_string ov) distro ov 
   in

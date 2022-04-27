@@ -55,7 +55,10 @@ module Op = struct
             || String.equal x (String.cat "v" key.gref)
             || String.equal x (String.cat "V" key.gref)
             || String.equal x (String.cat "release-" key.gref) then Some x else None) tags in
-      let gref = match tag with Some t -> t | None -> key.gref in
+      let gref =
+        match tag with
+        | Some t -> t
+        | None   -> Current.Job.log job "Log:  \"%s\" is not from the tags" key.gref; key.gref in
       let cmd = ["git"; "-C"; Fpath.to_string path; "rev-parse"; gref] in
       (Current.Process.check_output ~cancellable:true ~job ("", Array.of_list cmd) >|= Stdlib.Result.map String.trim) >>!= fun hash ->
       Lwt.return (Ok {Outcome.repo = key.repo; gref =  gref; hash = hash})
