@@ -6,6 +6,8 @@ module Git = Current_git
 module Github = Current_github
 module Docker = Current_docker.Default
 
+module Map = Map.Make(String)
+
 let tidy_label label =
   Fmt.str "%a" Fmt.(list string) (String.split_on_char '@' label)
 
@@ -175,6 +177,14 @@ let clone_fixed_repos fixed_repos : (string * Git.Commit.t Current.t) list =
     )
   ) |> List.flatten
 
+let clone_sandmark_repos packages : (Sandmark_packages.sandmark_dep * Git.Commit.t Current.t) list =
+  let pack_map =
+    List.fold_left (fun map (pack:Sandmark_packages.sandmark_dep) -> Map.add pack.main_repo_url pack map) Map.empty packages
+  in
+  let repos = List.map (fun (pack:Sandmark_packages.sandmark_dep) -> pack.main_repo_url) packages in
+  let repos = clone_fixed_repos repos in
+  List.map (fun (main_repo_url, commit) -> (Map.find main_repo_url pack_map, commit)) repos
+
 let analyse_build_summarise ?ocluster ~solver ~repo ~is_compiler ?compiler_gref ?compiler_commit ?label ~conf commit =
   let is_compiler_blocklisted = is_compiler_blocklisted conf in
   let analysis = analysis_component ~solver ?label ~is_compiler ~get_is_compiler_blocklisted:is_compiler_blocklisted ~repo ~conf commit in
@@ -232,21 +242,25 @@ let rec build_from_clone ?ocluster ~solver ~(conf:Conf.conf) (repo_clone: (strin
     in
     Current.all downstream_builds
   else if Conf.is_sandmark repo_url then
-    let commit_id_from_rev_parse (rev_parse:Sandmark_rev_parse.Op.Outcome.t Current.t) =
-      Current.component "commit_id" |>
-      let> rev_parse = rev_parse in
-      let repo, gref, hash = rev_parse.repo, rev_parse.gref, rev_parse.hash in
-      let commit_id = Git.Commit_id.v ~repo ~gref ~hash in Current.Primitive.const commit_id
+    let repo_url_n_commit_id_from_rev_parse (rev_parse:Sandmark_rev_parse.Op.Outcome.t Current.t) =
+      let repo_ref, gref_ref = ref "" , ref "" in
+      let component =
+        Current.component "commit_id" |>
+        let> rev_parse = rev_parse in
+        let repo, gref, hash = rev_parse.repo, rev_parse.gref, rev_parse.hash in
+        let _ = (repo_ref := repo; gref_ref := gref) in
+        let commit_id = Git.Commit_id.v ~repo ~gref ~hash in Current.Primitive.const commit_id
+      in (String.concat "@" [String.trim !repo_ref; String.trim !gref_ref], component)
     in
     let opam_repository_commit = Git.clone ~schedule:daily ~gref:"master" "https://github.com/ocaml/opam-repository.git" in
     let packages = Sandmark_packages.v ~repo_url commit opam_repository_commit in
     Current.component "cascade" |>
     let** packages = packages in
-    let repos = List.map (fun (pack: Sandmark_packages.sandmark_dep) -> pack.repo_url) packages.packages in
-    clone_fixed_repos repos
-    |> List.map (fun (repo_url, commit) -> Repo_url_utils.url_gref_from_url repo_url, repo_url,commit)
-    |> List.map (fun ((url,gref), repo_url, commit) -> repo_url, Sandmark_rev_parse.v ~schedule:daily ~gref ~repo:url ~commit)
-    |> List.map (fun (repo_url,rev_parse) -> repo_url, commit_id_from_rev_parse rev_parse)
+    clone_sandmark_repos packages.packages
+    |> List.map (
+      fun ((pack:Sandmark_packages.sandmark_dep), commit) -> Repo_url_utils.url_gref_from_url pack.repo_url, commit)
+    |> List.map (fun ((url,gref), commit) -> Sandmark_rev_parse.v ~schedule:daily ~gref ~repo:url ~commit)
+    |> List.map (fun rev_parse -> repo_url_n_commit_id_from_rev_parse rev_parse)
     |> List.map (fun (repo_url,commit_id) -> repo_url, Git.fetch commit_id)
     |> List.map (build_from_clone ~solver ~conf)
     |> Current.all

@@ -45,9 +45,19 @@ module Op = struct
   let publish No_context job (key: Key.t) (commit: Value.t) =
     Current.Job.start job ~level:Current.Level.Harmless >>= fun () ->
     Git.with_checkout ~job commit @@ fun path ->
-      let cmd = ["git"; "-C"; Fpath.to_string path; "rev-parse"; key.gref] in
+      let cmd = ["git"; "-C"; Fpath.to_string path; "tag"] in
+      (Current.Process.check_output ~cancellable:true ~job ("", Array.of_list cmd) >|= Stdlib.Result.map String.trim) >>!= fun tags ->
+      let tags = String.split_on_char '\n' tags in
+      let tags = List.map (fun x -> String.trim x) tags in
+      let tag = List.find_map (
+        fun x ->
+          if String.equal x key.gref
+            || String.equal x (String.cat "v" key.gref)
+            || String.equal x (String.cat "V" key.gref) then Some x else None) tags in
+      let gref = match tag with Some t -> t | None -> key.gref in
+      let cmd = ["git"; "-C"; Fpath.to_string path; "rev-parse"; gref] in
       (Current.Process.check_output ~cancellable:true ~job ("", Array.of_list cmd) >|= Stdlib.Result.map String.trim) >>!= fun hash ->
-      Lwt.return (Ok {Outcome.repo = key.repo; gref = key.gref; hash = hash})
+      Lwt.return (Ok {Outcome.repo = key.repo; gref =  gref; hash = hash})
 
   let pp f (key, _) =
     Fmt.pf f "The rev-parse of %s in %s" key.Key.gref key.repo

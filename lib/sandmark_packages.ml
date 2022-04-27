@@ -4,6 +4,27 @@ module Git = Current_git
 
 module Map_url = Map.Make(String)
 
+let repo_url_main_branch repo_url =
+  let (url, _) = Repo_url_utils.url_gref_from_url repo_url in
+  match url  with
+  | "https://github.com/OCamlPro/alt-ergo.git"
+
+  | "https://github.com/ocaml/dune.git"
+  | "git://github.com/ocaml-ppx/ppx_tools.git"
+  | "https://github.com/ocaml-ppx/ppxlib.git"
+  | "https://github.com/owlbarn/owl.git"
+  | "https://github.com/Coquera/psmt2-frontend.git"
+  | "https://github.com/CraigFe/progress.git"
+  | "git://github.com/dbuenzli/nbcodec"
+  | "https://github.com/dgllghr/interval-map.git"
+  | "https://github.com/mirage/either.git"
+  | "https://github.com/mirage/index.git"
+  | "https://github.com/mirage/irmin.git"
+  | "https://github.com/mirage/semaphore-compat.git"
+  | "https://github.com/mirage/repr.git" -> String.cat url "@main"
+
+  | _ -> String.cat url "@master"
+
 let find_opam_files path = Bos.Cmd.(v "find" % path % "-name" % "opam")
 
 let packages_in_depends f =
@@ -61,7 +82,9 @@ let opam_files path =
 type sandmark_dep = {
   packages: string list;
   repo_url: string;
-  version: string
+  version: string;
+  main_repo_url : string;
+  (*the main branch of the current that could be main,master or else, like "git_url@main/master"*)
 } [@@deriving yojson]
 
 module Op = struct
@@ -141,7 +164,7 @@ module Op = struct
     in
     let new_package (name,version,repo_url)  (pack_map,pack_no_dev_repo) =
       if String.equal "" repo_url then
-        pack_map,{version= version; repo_url= repo_url; packages = [name] }::pack_no_dev_repo
+        pack_map,{version= version; repo_url= repo_url; main_repo_url = repo_url; packages = [name] }::pack_no_dev_repo
       else
         if Map_url.mem repo_url pack_map then
           let pack = Map_url.find repo_url pack_map in
@@ -149,18 +172,21 @@ module Op = struct
             Map_url.add repo_url {
                 version= version;
                 repo_url= repo_url;
+                main_repo_url = repo_url;
                 packages= if List.mem name pack.packages then pack.packages else pack.packages@[name]
               } pack_map
           , pack_no_dev_repo)
         else
-          (Map_url.add repo_url {version= version; repo_url= repo_url; packages = [name] } pack_map
+          (Map_url.add repo_url {version= version; repo_url= repo_url; main_repo_url = repo_url; packages = [name] } pack_map
           , pack_no_dev_repo)
 
     in
     let _ = Current.Job.log job "Founded packages(Repeatable): %s" (string_of_int (List.length packages)) in
     let packages,packages_no_dev_repo = List.fold_left (fun map p -> new_package p map) (Map_url.empty,[]) packages in
     let packages = Map_url.fold (fun _ pack l -> pack::l) packages [] in
-    Lwt.return (Ok {Outcome.packages= packages; packages_missing_dev_repo=packages_no_dev_repo})
+    Lwt.return (Ok {
+      Outcome.packages= List.map (fun pack -> {pack with main_repo_url = repo_url_main_branch pack.repo_url}) packages;
+      packages_missing_dev_repo=packages_no_dev_repo})
 
   let pp f (key, _) =
     Fmt.pf f "Extracting sandmark packages from %s" key.Key.repo_url
