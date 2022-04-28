@@ -52,9 +52,9 @@ module Op = struct
       let tag = List.find_map (
         fun x ->
           if String.equal x key.gref
-            || String.equal x (String.cat "v" key.gref)
-            || String.equal x (String.cat "V" key.gref)
-            || String.equal x (String.cat "release-" key.gref) then Some x else None) tags in
+            || String.equal x ("v" ^ key.gref)
+            || String.equal x ("V" ^ key.gref)
+            || String.equal x ("release-" ^ key.gref) then Some x else None) tags in
       let gref =
         match tag with
         | Some t -> t

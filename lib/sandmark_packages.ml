@@ -18,8 +18,8 @@ let repo_url_main_branch repo_url =
   | "https://github.com/mirage/index.git"
   | "https://github.com/mirage/irmin.git"
   | "https://github.com/mirage/semaphore-compat.git"
-  | "https://github.com/mirage/repr.git" -> String.cat url "@main"
-  | _ -> String.cat url "@master"
+  | "https://github.com/mirage/repr.git" -> url ^ "@main"
+  | _ -> url ^ "@master"
 
 let find_opam_files path = Bos.Cmd.(v "find" % path % "-name" % "opam")
 
