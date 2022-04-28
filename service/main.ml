@@ -88,20 +88,21 @@ let has_role user = function
 
 (* The app parameter (the GitHub app for this pipeline) is ignored for now;
    we have decided not to use that as part of this CI. *)
-let main config mode _app capnp_address github_auth submission_uri : ('a, [`Msg of string]) result =
+let main config mode app capnp_address github_auth submission_uri : ('a, [`Msg of string]) result =
   Lwt_main.run begin
     run_capnp capnp_address >>= fun (vat, rpc_engine_resolver) ->
     let ocluster = Option.map (Capnp_rpc_unix.Vat.import_exn vat) submission_uri in
     let engine = Current.Engine.create ~config (Pipeline.v ?ocluster ~solver) in
     rpc_engine_resolver |> Option.iter (fun r -> Capability.resolve_ok r (Api_impl.make_ci ~engine));
     let authn = Option.map Current_github.Auth.make_login_uri github_auth in
+    let webhook_secret = Current_github.App.webhook_secret app in
     let has_role =
       if github_auth = None then Current_web.Site.allow_all
       else has_role
     in
     let secure_cookies = github_auth <> None in
     let routes =
-      Routes.(s "webhooks" / s "github" /? nil @--> Current_github.webhook) ::
+      Routes.(s "webhooks" / s "github" /? nil @--> Current_github.webhook ~engine ~webhook_secret ~has_role) ::
       Routes.(s "login" /? nil @--> Current_github.Auth.login github_auth) ::
       Current_web.routes engine in
     let site = Current_web.Site.v ?authn ~has_role ~secure_cookies ~name:"ocaml-multicore-ci" routes in
@@ -131,30 +132,16 @@ let submission_service =
     ~docv:"FILE"
     ["submission-service"]
 
-let github_app_id =
-  Arg.required @@
-  Arg.opt Arg.(some string) None @@
-  Arg.info ["github-app-id"]
-
-let cmd ~with_github =
+let cmd =
   let doc = "Build OCaml projects on GitHub" in
   let term = Term.(
-    let gh_cmd = if with_github then
-      const (fun x -> Some x) $ Current_github.App.cmdliner
-    else
-      const None
-    in
     term_result (
       const main $ Current.Config.cmdliner $ Current_web.cmdliner $
-      gh_cmd $
+      Current_github.App.cmdliner $
       capnp_address $ Current_github.Auth.cmdliner $ submission_service)) in
   let info = Cmd.info "ocaml-multicore-ci" ~doc in
   Cmd.v info term
 
 let () = 
-  let with_github = match Cmd.eval_peek_opts github_app_id with
-  | (None, _) -> false
-  | (Some _, _) -> true
-  in
-  Cmd.eval (cmd ~with_github) |> exit
+  Cmd.eval cmd |> exit
 
