@@ -262,7 +262,7 @@ let rec build_from_clone ?ocluster ~solver ~(conf:Conf.conf) (repo_clone: (strin
     |> List.map (fun ((url,gref), commit) -> Sandmark_rev_parse.v ~schedule:daily ~gref ~repo:url ~commit)
     |> List.map (fun rev_parse -> repo_url_n_commit_id_from_rev_parse rev_parse)
     |> List.map (fun (repo_url,commit_id) -> repo_url, Git.fetch commit_id)
-    |> List.map (build_from_clone ~solver ~conf)
+    |> List.map (build_from_clone ?ocluster ~solver ~conf)
     |> Current.all
   else
     let (_, build) =
