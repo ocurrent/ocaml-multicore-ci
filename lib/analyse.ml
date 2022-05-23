@@ -72,6 +72,7 @@ let remove_dev_selections ~opam_files = function
     `Opam_build (remove_dev_selections_from_opam_build ~opam_files selections)
   | `Opam_monorepo _ as x -> x
   | `Not_opam _ as x -> x
+  | `Sand_build _ as x -> x
 
 module Analysis = struct
   type t = {
@@ -81,6 +82,7 @@ module Analysis = struct
       [ `Opam_build of Selection.t list
       | `Opam_monorepo of Opam_monorepo.config
       | `Not_opam of string * Selection.t list
+      | `Sand_build of string * Selection.t list
       ];
   }
   [@@deriving yojson]
@@ -104,6 +106,15 @@ module Analysis = struct
     { opam_files = [];
       ocamlformat_source = None;
       selections = `Not_opam (
+        package_name,
+        make_placeholder_selections ~platforms ~opam_repository_commits
+      );
+    }
+
+  let sandmark_dummy_analysis ~platforms ~opam_repository_commits ~package_name =
+    { opam_files = [];
+      ocamlformat_source = None;
+      selections = `Sand_build (
         package_name,
         make_placeholder_selections ~platforms ~opam_repository_commits
       );
@@ -372,9 +383,10 @@ module Examine = struct
       platforms : (Variant.t * Worker.Vars.t) list;
       is_compiler : bool;
       compiler_commit : Current_git.Commit_id.t option;
+      sandmark_package: string option
     }
 
-    let digest { opam_repository_commits; platforms; is_compiler; compiler_commit } =
+    let digest { opam_repository_commits; platforms; is_compiler; compiler_commit; sandmark_package } =
       let json = `Assoc [
           "opam-repositories",
             commit_ids_to_yojson opam_repository_commits;
@@ -383,9 +395,13 @@ module Examine = struct
           "is_compiler",
             `Bool is_compiler;
           "compiler_commit",
-            match compiler_commit with
+            (match compiler_commit with
             | None -> `Null
-            | Some cc -> commit_id_to_yojson cc
+            | Some cc -> commit_id_to_yojson cc);
+          "sandmark_package",
+            (match sandmark_package with
+            | None -> `Null
+            | Some s -> `String s)
         ]
       in
       Yojson.Safe.to_string json
@@ -395,11 +411,15 @@ module Examine = struct
 
   let id = "ci-analyse"
 
-  let run solver job { Key.src; _ } { Value.opam_repository_commits; platforms; is_compiler; compiler_commit } =
+  let run solver job { Key.src; _ } { Value.opam_repository_commits; platforms; is_compiler; compiler_commit; sandmark_package } =
     let package_name = package_name_from_commit src in
     Current.Job.start job ~pool ~level:Current.Level.Harmless >>= fun () ->
     Current_git.with_checkout ~job src @@ fun src ->
-    Analysis.of_dir ~solver ~platforms ~opam_repository_commits ~job ~package_name ~is_compiler ?compiler_commit src
+    match sandmark_package with
+    | None -> Analysis.of_dir ~solver ~platforms ~opam_repository_commits ~job ~package_name ~is_compiler ?compiler_commit src
+    | Some package_name ->
+      Current.Job.log job "The analysis is skip, %s sandmark package dependency does not need to be analysed" package_name;
+      Lwt_result.return (Analysis.sandmark_dummy_analysis ~platforms ~opam_repository_commits ~package_name)
 
   let pp f (k, v) = Fmt.pf f "Analyse %s %s" (Key.digest k) (Value.digest v)
 
@@ -446,9 +466,9 @@ let split_label = function
   | [a; b] -> (a, b)
   | _ -> (s, "")
 
-let examine ?label ~solver ~platforms ~opam_repository_commits ~is_compiler ~get_is_compiler_blocklisted ~repo src =
+let examine ?label ?sandmark_package ~solver ~platforms ~opam_repository_commits ~is_compiler ~get_is_compiler_blocklisted ~repo src =
   let (label1, label2) = split_label label in
-  Current.component "Analyse@ %s@ %s" label1 label2 |>
+  Current.component "Analyse@ %s@ %s" label1 label2|>
   let> src = src
   and> repo = repo
   and> opam_repository_commits = opam_repository_commits
@@ -458,9 +478,9 @@ let examine ?label ~solver ~platforms ~opam_repository_commits ~is_compiler ~get
   let opam_repository_commits = opam_repos_for_package ~is_compiler opam_repository_commits in
   Examine_cache.run solver
     { src; compiler_commit=None }
-    { Examine.Value.opam_repository_commits; platforms; is_compiler; compiler_commit=None }
+    { Examine.Value.opam_repository_commits; platforms; is_compiler; compiler_commit=None; sandmark_package=sandmark_package }
 
-let examine_with_compiler ?label ~solver ~platforms ~opam_repository_commits ~compiler_commit src =
+let examine_with_compiler ?label ?sandmark_package ~solver ~platforms ~opam_repository_commits ~compiler_commit src =
   Current.component "Analysis@ %a" Fmt.(option string) label |>
   let> src = src
   and> compiler_commit = compiler_commit
@@ -469,4 +489,5 @@ let examine_with_compiler ?label ~solver ~platforms ~opam_repository_commits ~co
   let platforms = first_invariant_platform platforms |> remap_platforms in
   Examine_cache.run solver
     { src; compiler_commit=(Some compiler_commit) }
-    { Examine.Value.opam_repository_commits; platforms; is_compiler=false; compiler_commit=(Some compiler_commit) }
+    { Examine.Value.opam_repository_commits; platforms; is_compiler=false; compiler_commit=(Some compiler_commit);
+    sandmark_package=sandmark_package }

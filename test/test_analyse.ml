@@ -19,6 +19,7 @@ module Analysis = struct
     | `Not_opam _ -> "not-opam"
     | `Opam_monorepo _ -> "opam-monorepo"
     | `Opam_build _ -> "opam"
+    | `Sand_build _ -> "sand-build"
 
   (* Make the [t] type concrete from the observable fields for easier testing *)
   type t = {
