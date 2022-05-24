@@ -176,6 +176,10 @@ let build_mechanism_for_package package =
   | "tezos" -> `Script ["sudo apt-get install -y rsync git m4 build-essential patch unzip wget pkg-config libgmp-dev libev-dev libhidapi-dev libffi-dev opam jq zlib1g-dev bc autoconf software-properties-common"; "gpg --keyserver keyserver.ubuntu.com --recv-keys BA6932366A755776"; "gpg --export BA6932366A755776 | sudo apt-key add -"; "sudo add-apt-repository 'deb http://ppa.launchpad.net/deadsnakes/ppa/ubuntu bionic main'"; "sudo apt-get update"; "sudo apt-get install -y python3.9 python3.9-dev python3.9-distutils python3-pip virtualenv python3.9-venv"; "wget https://sh.rustup.rs/rustup-init.sh"; "chmod +x rustup-init.sh"; "./rustup-init.sh --profile minimal --default-toolchain 1.52.1 -y"; "opam install dune"; "curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py | python3.9 -"; "python3.9 -m pip install --upgrade setuptools"; "bash -c 'source $HOME/.poetry/env; source $HOME/.cargo/env; make build-deps && eval $(opam env); PATH=\"$HOME/.local/bin:$PATH\"; make -C tests_python install-dependencies && make && make test'"]
   | _ -> `Build
 
+let sandmark_mechanisme_for_package package =
+  `Script ["opam install dune.2.9.3 -y"; "opam install --deps-only -yv "^package; "opam remove -y "^package; "opam install -vy "^package]
+  (*we use "opam install" because we consider the package is already pinned*)
+
 let is_compiler_package package =
   match package with
   | "ocaml-multicore" -> true
@@ -228,7 +232,7 @@ let configs = [
   {
     opam_repository_commits = sandmark_opam_repository_commits
     ; fixed_repos = sandmark_opam_repository_repos
-    ; build_mechanism_for_package = build_mechanism_for_package
+    ; build_mechanism_for_package = sandmark_mechanisme_for_package
     ; is_compiler_package = is_compiler_package
     ; is_compiler_blocklisted = is_compiler_blocklisted
   }

@@ -74,8 +74,6 @@ let package_and_selection_to_opam_spec ~analysis ~package ~(conf:Conf.conf) sele
 
 let make_opam_specs ~conf analysis =
   match Analyse.Analysis.selections analysis with
-  | `Sand_build (package, selections) ->
-    selections |> List.map (package_and_selection_to_opam_spec ~analysis ~package ~conf)
   | `Not_opam (package, selections) ->
     selections |> List.map (package_and_selection_to_opam_spec ~analysis ~package ~conf)
   | `Opam_monorepo config ->

@@ -8,7 +8,6 @@ module Analysis : sig
       | `Opam_build of Selection.t list
       | `Opam_monorepo of Opam_monorepo.config
       | `Not_opam of string * Selection.t list
-      | `Sand_build of string * Selection.t list
     ]
 
   val of_dir :
