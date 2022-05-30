@@ -19,6 +19,18 @@ let add_cors_headers (headers: Cohttp.Header.t): Cohttp.Header.t =
 let normal_response x =
   x >|= fun x -> `Response x
 
+let crunch ?content_type ?(max_age=86400) path =
+  match Static.read path with
+  | None -> Server.respond_not_found ()
+  | Some body ->
+    let content_type = Option.value ~default:(Magic_mime.lookup path) content_type in
+    let headers =
+    Cohttp.Header.of_list [
+        ("Content-Type", content_type);
+        ("Cache-Control", Printf.sprintf "public, max-age=%d;" max_age);
+    ] in
+    Server.respond_string ~status:`OK ~headers ~body ()
+
 let handle_request ~backend ~docroot ~graphql_callback conn request body =
   let meth = Cohttp.Request.meth request in
   let uri = Cohttp.Request.uri request in
@@ -50,8 +62,8 @@ let handle_request ~backend ~docroot ~graphql_callback conn request body =
   | `GET, (["index.html"] | ("images" :: _) | ("static" :: _)) ->
     let fname = Server.resolve_local_file ~docroot ~uri in
     Server.respond_file ~fname ~headers:response_headers () |> normal_response
-  | `GET, ["css"; "style.css"] ->
-    Style.get () |> normal_response
+  | `GET, ["css"; _] ->
+    crunch ~content_type:"text/css" path |> normal_response
   | meth, ("github" :: path) when path != [] ->
     Github.handle ~backend ~meth path
   | `GET, ("badge" :: path) ->
