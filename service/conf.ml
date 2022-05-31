@@ -61,24 +61,26 @@ type platform = {
   arch: OV.arch;
 }
 
-let pool_of_arch = function
+let pool_of_arch : OV.arch -> string = function
 | `X86_64 | `I386 -> "linux-x86_64"
 | `Aarch32 | `Aarch64 -> "linux-arm64"
 | `Ppc64le -> "linux-ppc64"
+| `S390x -> assert false
 
 let platforms =
   let v ?(arch=`X86_64) label distro ocaml_version =
     { arch; label; builder = Builders.local; pool = pool_of_arch arch; distro; ocaml_version }
   in
-  let master_distro = DD.resolve_alias DD.master_distro in
+  let master_distro = (DD.resolve_alias DD.master_distro :> DD.t) in
   let make_distro distro =
-    let distro = DD.resolve_alias distro in
+    let distro = (DD.resolve_alias distro :> DD.t) in
     let label = DD.latest_tag_of_distro distro in
     let tag = DD.tag_of_distro distro in
     let ov = OV.(Releases.latest |> with_just_major_and_minor) in
     if distro = master_distro then
+      let arches = DD.distro_arches ov distro |> List.filter ((<>) `S390x) in
       v label tag (OV.with_variant ov (Some "flambda")) ::
-      List.map (fun arch -> v ~arch label tag ov) (DD.distro_arches ov distro)
+      List.map (fun arch -> v ~arch label tag ov) arches
     else
       [v label tag ov]
   in

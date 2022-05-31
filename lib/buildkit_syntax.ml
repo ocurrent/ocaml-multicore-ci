@@ -1,14 +1,13 @@
 (* From `docker manifest inspect docker/dockerfile:experimental` *)
 let hash_for = function
-  |`X86_64 -> "sha256:8c69d118cfcd040a222bea7f7d57c6156faa938cb61b47657cd65343babc3664"
-  |`I386 -> "sha256:8c69d118cfcd040a222bea7f7d57c6156faa938cb61b47657cd65343babc3664"
-  |`Aarch64 -> "sha256:d9ced99b409ddb781c245c7c11f72566f940424fc3883ac0b5c5165f402e5a09"
-  |`Aarch32 -> "sha256:5f502d5a34f8cd1780fde9301b69488e9c0cfcecde2d673b6bff19aa4979fdfc"
-  |`Ppc64le -> "sha256:c0fe20821d527e147784f7e782513880bf31b0060b2a7da7a94582ecde81c85f"
+  | `Aarch64 -> "sha256:9ad2a80da6ecccdc36ffe9a6690d919bdcf36575e01f2fdf0c8c2b9cf838c309"
+  | `Ppc64le -> "sha256:fd2f1d1028f65af35a1151a43ef8e93a5f7e4bfbfec8c24a862baa7eee69be94"
+  | `X86_64 -> "sha256:3c244c0c6fc9d6aa3ddb73af4264b3a23597523ac553294218c13735a2c6cf79"
 
 let add arch =
   let hash = hash_for (match arch with
     | `X86_64 | `I386 -> `X86_64
     | `Aarch64 | `Aarch32 -> `Aarch64
-    | `Ppc64le -> `Ppc64le) in
+    | `Ppc64le -> `Ppc64le
+    | `S390x -> assert false) in
   Printf.sprintf "# syntax = docker/dockerfile:experimental@%s\n" hash
