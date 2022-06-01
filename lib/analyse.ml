@@ -54,7 +54,12 @@ let job_log job =
 
 let make_placeholder_selections ~platforms ~opam_repository_commits =
   platforms |> List.map (fun platform ->
-    { Selection.variant = fst platform; packages = []; commit = Current_git.Commit_id.hash (List.hd opam_repository_commits); command=None }
+    {
+      Selection.variant = fst platform;
+      packages = [];
+      commits = List.map (fun y -> Current_git.Commit_id.hash y, Current_git.Commit_id.repo y) opam_repository_commits;
+      command=None
+    }
   )
 
 (* Remove all the *.dev packages in opam_files from the given selections *)
@@ -216,7 +221,7 @@ module Analysis = struct
       let pkg = Str.global_replace dev_re "" pkg_name in
       let opam = OpamFile.OPAM.read_from_string opam_str in
       let command = build_command_to_string ~pkg (OpamFile.OPAM.build opam) in
-      { Selection.variant=selection.Selection.variant; packages=selection.packages; commit=selection.commit; command=command }
+      { Selection.variant=selection.Selection.variant; packages=selection.packages; commits=selection.commits; command=command }
     | _ ->
       selection
 

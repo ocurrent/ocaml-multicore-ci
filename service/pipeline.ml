@@ -182,7 +182,7 @@ let clone_sandmark_repos packages : (Sandmark_packages.sandmark_dep * Git.Commit
     List.fold_left (fun map (pack:Sandmark_packages.sandmark_dep) -> Map.add pack.main_repo_url pack map) Map.empty packages
   in
   let repos = List.map (fun (pack:Sandmark_packages.sandmark_dep) -> pack.main_repo_url) packages in
-  let repos = clone_fixed_repos repos in
+  let repos = List.map (fun repo -> let (url,gref) = Repo_url_utils.url_gref_from_url repo in (repo, (Git.clone ~schedule:daily ~gref url))) repos (*clone_fixed_repos repos*) in
   List.map (fun (main_repo_url, commit) -> (Map.find main_repo_url pack_map, commit)) repos
 
 let analyse_build_summarise ?ocluster ?sandmark_package ~solver ~repo ~is_compiler ?compiler_gref ?compiler_commit ?label ~conf commit =
@@ -262,7 +262,7 @@ let rec build_from_clone ?ocluster ?sandmark_package ~solver ~(conf:Conf.conf) (
     |> List.map (fun ((url,gref), commit) -> Sandmark_rev_parse.v ~schedule:daily ~gref ~repo:url ~commit)
     |> List.map (fun rev_parse -> repo_url_n_commit_id_from_rev_parse rev_parse)
     |> List.map (fun (repo_url,commit_id) -> repo_url, Git.fetch commit_id)
-    |> List.sort_uniq (fun (url1,_) (url2, _) -> String.compare url1 url2)
+    (*|> List.sort_uniq (fun (url1,_) (url2, _) -> String.compare url1 url2)*)
     |> List.map (fun (url,commit) ->
       build_from_clone ?ocluster ?sandmark_package:(Some (Repo_url_utils.package_name_from_url url)) ~solver ~conf (url,commit))
     |> Current.all
