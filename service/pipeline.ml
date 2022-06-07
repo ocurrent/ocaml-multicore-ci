@@ -95,7 +95,7 @@ let make_opam_specs ~conf analysis =
     in
     lint @ builds
 
-let place_build ~ocluster ~repo ?test_repo ?compiler_commit ~source spec =
+let place_build ~ocluster ~repo ?test_repo ?compiler_commit ?sandmark_package ~source spec =
   let+ result =
     match ocluster with
     | None ->
@@ -103,11 +103,11 @@ let place_build ~ocluster ~repo ?test_repo ?compiler_commit ~source spec =
     | Some ocluster ->
       let src = Current.map Git.Commit.id source in
       let compiler_commit_id = Option.map (fun c -> Current.map Git.Commit.id c) compiler_commit in
-      Cluster_build.v ocluster ~platforms ~repo ?test_repo ?compiler_commit:compiler_commit_id ~spec src
+      Cluster_build.v ocluster ~platforms ~repo ?test_repo ?compiler_commit:compiler_commit_id ?sandmark_package ~spec src
   and+ spec = spec in
   Spec.label spec, result
 
-let place_builds ?ocluster ~repo ?test_repo ?compiler_gref ?compiler_commit ?label ~analysis ~conf source =
+let place_builds ?ocluster ~repo ?test_repo ?compiler_gref ?compiler_commit ?label ?sandmark_package ~analysis ~conf source =
   Current.with_context analysis @@ fun () ->
   let specs =
     let+ analysis = Current.state ~hidden:true analysis in
@@ -119,7 +119,7 @@ let place_builds ?ocluster ~repo ?test_repo ?compiler_gref ?compiler_commit ?lab
       make_opam_specs ~conf analysis
   in
   let label = tidy_label_opt label in
-  let+ builds = specs |> Current.list_map ?label (module Spec) (place_build ~ocluster ~repo ?test_repo ?compiler_commit ~source)
+  let+ builds = specs |> Current.list_map ?label (module Spec) (place_build ~ocluster ~repo ?test_repo ?compiler_commit ?sandmark_package ~source)
   and+ analysis_result = Current.state ~hidden:true (Current.map (fun _ -> `Checked) analysis)
   and+ analysis_id = get_job_id analysis in
   (builds |> List.map (fun (l, r) -> l, compiler_gref, r)) @ [
@@ -134,10 +134,12 @@ let analysis_with_compiler_component ?label ?sandmark_package ~solver ~compiler_
   let opam_repository_commits = conf.opam_repository_commits in
   Analyse.examine_with_compiler ?sandmark_package ?label ~solver ~platforms ~opam_repository_commits ~compiler_commit commit
 
-let build_from_clone_component ?compiler_commit repo_clone =
+let build_from_clone_component ?sandmark_package ?compiler_commit repo_clone =
   let (repo_url, commit) = repo_clone in
   let (repo_url, _) = Repo_url_utils.url_gref_from_url repo_url in
-  Build_from_clone_component.v ~repo_url ?compiler_commit commit
+  match sandmark_package with
+  | None -> Build_from_clone_component.v ~repo_url ?compiler_commit commit
+  | Some p -> Sandmark_build.v ~repo_url ?compiler_commit commit p
 
 let cascade_component ~build (commit: Git.Commit.t Current.t) =
   Current.component "cascade" |>
@@ -177,23 +179,15 @@ let clone_fixed_repos fixed_repos : (string * Git.Commit.t Current.t) list =
     )
   ) |> List.flatten
 
-let clone_sandmark_repos packages : (Sandmark_packages.sandmark_dep * Git.Commit.t Current.t) list =
-  let pack_map =
-    List.fold_left (fun map (pack:Sandmark_packages.sandmark_dep) -> Map.add pack.main_repo_url pack map) Map.empty packages
-  in
-  let repos = List.map (fun (pack:Sandmark_packages.sandmark_dep) -> pack.main_repo_url) packages in
-  let repos = List.map (fun repo -> let (url,gref) = Repo_url_utils.url_gref_from_url repo in (repo, (Git.clone ~schedule:daily ~gref url))) repos (*clone_fixed_repos repos*) in
-  List.map (fun (main_repo_url, commit) -> (Map.find main_repo_url pack_map, commit)) repos
-
 let analyse_build_summarise ?ocluster ?sandmark_package ~solver ~repo ~is_compiler ?compiler_gref ?compiler_commit ?label ~conf commit =
   let is_compiler_blocklisted = is_compiler_blocklisted conf in
   let analysis = analysis_component ~solver ?label ?sandmark_package ~is_compiler ~get_is_compiler_blocklisted:is_compiler_blocklisted ~repo ~conf commit in
-  let builds = place_builds ?ocluster ~repo ?compiler_gref ?compiler_commit ?label ~analysis ~conf commit in
+  let builds = place_builds ?ocluster ~repo ?compiler_gref ?compiler_commit ?label ?sandmark_package ~analysis ~conf commit in
   (builds, summarise_builds_current builds)
 
 let build_from_clone_with_compiler ?ocluster ?sandmark_package ~solver ?compiler_commit ~conf repo_clone =
   let (repo_url, _) = repo_clone in
-  let commit = build_from_clone_component ?compiler_commit repo_clone in
+  let commit = build_from_clone_component ?sandmark_package ?compiler_commit repo_clone in
   let hash = Current.map Git.Commit.hash commit in
   let label = Repo_url_utils.owner_name_gref_from_url repo_url in
   let is_compiler = is_compiler_from_repo_url conf repo_url in
@@ -207,12 +201,12 @@ let build_with_compiler ?ocluster ?sandmark_package ~solver ~compiler_gref ~comp
   let cache_hint = Current.map (fun c -> Git.Commit_id.repo (Git.Commit.id c)) compiler_commit in
   let compiler_commit_id = Current.map Git.Commit.id compiler_commit in
   let analysis = analysis_with_compiler_component ~solver ?label ?sandmark_package ~compiler_commit:compiler_commit_id ~conf commit in
-  let builds = place_builds ?ocluster ~repo:cache_hint ~test_repo:repo_url ~compiler_gref ~compiler_commit ?label ~analysis ~conf commit in
+  let builds = place_builds ?ocluster ~repo:cache_hint ~test_repo:repo_url ~compiler_gref ~compiler_commit ?label ?sandmark_package ~analysis ~conf commit in
   let summary = summarise_builds_current builds in
   let recorded_builds = record_builds ~repo_url ~hash ~builds ~summary in
   Current.ignore_value (recorded_builds)
 
-let rec build_from_clone ?ocluster ?sandmark_package ~solver ~(conf:Conf.conf) (repo_clone: (string * Git.Commit.t Current.t)) =
+let build_from_clone ?ocluster ?sandmark_package ~solver ~(conf:Conf.conf) (repo_clone: (string * Git.Commit.t Current.t)) =
   let (repo_url, commit) = repo_clone in
   if is_compiler_from_repo_url conf repo_url
   then
@@ -242,29 +236,15 @@ let rec build_from_clone ?ocluster ?sandmark_package ~solver ~(conf:Conf.conf) (
     in
     Current.all downstream_builds
   else if Conf.is_sandmark repo_url then
-    let repo_url_n_commit_id_from_rev_parse (rev_parse:Sandmark_rev_parse.Op.Outcome.t Current.t) =
-      let repo_ref, gref_ref = ref "" , ref "" in
-      let component =
-        Current.component "commit_id" |>
-        let> rev_parse = rev_parse in
-        let repo, gref, hash = rev_parse.repo, rev_parse.gref, rev_parse.hash in
-        let _ = (repo_ref := repo; gref_ref := gref) in
-        let commit_id = Git.Commit_id.v ~repo ~gref ~hash in Current.Primitive.const commit_id
-      in (String.concat "@" [String.trim !repo_ref; String.trim !gref_ref], component)
-    in
     let opam_repository_commit = Git.clone ~schedule:daily ~gref:"master" "https://github.com/ocaml/opam-repository.git" in
     let packages = Sandmark_packages.v ~repo_url commit opam_repository_commit in
+    let compiler_commit = Git.clone ~schedule:daily ~gref:"trunk" "https://github.com/ocaml/ocaml.git" in
     Current.component "cascade" |>
-    let** packages = packages in
-    clone_sandmark_repos packages.packages
-    |> List.map (
-      fun ((pack:Sandmark_packages.sandmark_dep), commit) -> Repo_url_utils.url_gref_from_url pack.repo_url, commit)
-    |> List.map (fun ((url,gref), commit) -> Sandmark_rev_parse.v ~schedule:daily ~gref ~repo:url ~commit)
-    |> List.map (fun rev_parse -> repo_url_n_commit_id_from_rev_parse rev_parse)
-    |> List.map (fun (repo_url,commit_id) -> repo_url, Git.fetch commit_id)
-    (*|> List.sort_uniq (fun (url1,_) (url2, _) -> String.compare url1 url2)*)
-    |> List.map (fun (url,commit) ->
-      build_from_clone ?ocluster ?sandmark_package:(Some (Repo_url_utils.package_name_from_url url)) ~solver ~conf (url,commit))
+    let** packages = packages in packages.packages
+    |> List.map (fun package ->
+        let build =
+          build_with_compiler ?ocluster ~solver ?sandmark_package:(Some package) ~compiler_gref:"trunk" ~compiler_commit ~repo_url ~conf commit
+        in Current.ignore_value build)
     |> Current.all
   else
     let (_, build) =

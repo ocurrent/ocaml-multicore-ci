@@ -105,8 +105,9 @@ module Op = struct
 
   module Outcome = struct
     type t =  {
-      packages : sandmark_dep list;
-      packages_missing_dev_repo : sandmark_dep list
+      (*package is represented by "name.version"*)
+      packages : string list;
+      packages_missing_dev_repo : string list
     } [@@deriving yojson]
 
     let marshal t = to_yojson t |> Yojson.Safe.to_string
@@ -159,29 +160,21 @@ module Op = struct
       packages
     in
     let new_package (name,version,repo_url)  (pack_map,pack_no_dev_repo) =
+      let name_version = if String.equal version "" then name else String.concat "." [name;version] in
       if String.equal "" repo_url then
-        pack_map,{version= version; repo_url= repo_url; main_repo_url = repo_url; packages = [name] }::pack_no_dev_repo
+        pack_map,(name_version)::pack_no_dev_repo
       else
-        if Map_url.mem repo_url pack_map then
-          let pack = Map_url.find repo_url pack_map in
-          (
-            Map_url.add repo_url {
-                version= version;
-                repo_url= repo_url;
-                main_repo_url = repo_url;
-                packages= if List.mem name pack.packages then pack.packages else pack.packages@[name]
-              } pack_map
-          , pack_no_dev_repo)
+        if Map_url.mem (name_version) pack_map then
+          (pack_map, pack_no_dev_repo)
         else
-          (Map_url.add repo_url {version= version; repo_url= repo_url; main_repo_url = repo_url; packages = [name] } pack_map
+          (Map_url.add name_version name_version pack_map
           , pack_no_dev_repo)
-
     in
-    let _ = Current.Job.log job "Founded packages(Repeatable): %s" (string_of_int (List.length packages)) in
+    let _ = Current.Job.log job "Founded packages: %s" (string_of_int (List.length packages)) in
     let packages,packages_no_dev_repo = List.fold_left (fun map p -> new_package p map) (Map_url.empty,[]) packages in
     let packages = Map_url.fold (fun _ pack l -> pack::l) packages [] in
     Lwt.return (Ok {
-      Outcome.packages= List.map (fun pack -> {pack with main_repo_url = repo_url_main_branch pack.repo_url}) packages;
+      Outcome.packages= packages;
       packages_missing_dev_repo=packages_no_dev_repo})
 
   let pp f (key, _) =

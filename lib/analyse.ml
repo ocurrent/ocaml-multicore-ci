@@ -57,7 +57,7 @@ let make_placeholder_selections ~platforms ~opam_repository_commits =
     {
       Selection.variant = fst platform;
       packages = [];
-      commits = List.map (fun y -> Current_git.Commit_id.hash y, Current_git.Commit_id.repo y) opam_repository_commits;
+      commits = List.map (fun y -> Current_git.Commit_id.repo y, Current_git.Commit_id.hash y) opam_repository_commits;
       command=None
     }
   )
@@ -112,15 +112,6 @@ module Analysis = struct
         make_placeholder_selections ~platforms ~opam_repository_commits
       );
     }
-
-    let sandmark_dummy_analysis ~platforms ~opam_repository_commits ~opam_files ~package_name =
-      { opam_files = opam_files;
-        ocamlformat_source = None;
-        selections = `Not_opam (
-          package_name,
-          make_placeholder_selections ~platforms ~opam_repository_commits
-        );
-      }
 
   let check_opam_version =
     let version_2 = OpamVersion.of_string "2" in
@@ -351,7 +342,7 @@ module Analysis = struct
       Lwt_result.return r
     )
 
-    let of_dir_sandmark ~solver ~job ~platforms ~opam_repository_commits ~package_name ?is_compiler ?compiler_commit dir =
+    let of_dir_sandmark ~solver ~job ~platforms ~opam_repository_commits ~package_name ?is_compiler ?compiler_commit _ =
       let _ = solver in
       let is_compiler = Option.value is_compiler ~default:false in
       Current.Job.log job
@@ -361,8 +352,7 @@ module Analysis = struct
         (Fmt.list Git.Commit_id.pp) opam_repository_commits
         Fmt.bool is_compiler
         (Fmt.option Git.Commit_id.pp) compiler_commit;
-      find_opam_files ~job ~dir >>!= fun opam_files ->
-      Lwt_result.return (sandmark_dummy_analysis ~platforms ~opam_repository_commits ~opam_files ~package_name)
+      Lwt_result.return (dummy_analysis ~platforms ~opam_repository_commits ~package_name)
 end
 
 let platform_to_yojson (variant, vars) =
@@ -379,12 +369,17 @@ module Examine = struct
 
   module Key = struct
     type t = {
+      sandmark_package: string option;
       src: Current_git.Commit.t;
       compiler_commit : Current_git.Commit_id.t option;
     }
 
-    let digest { src; compiler_commit } =
+    let digest { sandmark_package; src; compiler_commit } =
       let json = `Assoc [
+          "sandmark_package",
+          (match sandmark_package with
+          | None -> `Null
+          | Some s -> `String s);
           "src", commit_to_yojson src;
           "compiler_commit",
             match compiler_commit with
@@ -494,7 +489,7 @@ let examine ?label ?sandmark_package ~solver ~platforms ~opam_repository_commits
   let platforms = platforms_for_package ~is_compiler ~get_is_compiler_blocklisted ~platforms package_name |> remap_platforms in
   let opam_repository_commits = opam_repos_for_package ~is_compiler opam_repository_commits in
   Examine_cache.run solver
-    { src; compiler_commit=None }
+    { sandmark_package; src; compiler_commit=None }
     { Examine.Value.opam_repository_commits; platforms; is_compiler; compiler_commit=None; sandmark_package=sandmark_package }
 
 let examine_with_compiler ?label ?sandmark_package ~solver ~platforms ~opam_repository_commits ~compiler_commit src =
@@ -505,6 +500,6 @@ let examine_with_compiler ?label ?sandmark_package ~solver ~platforms ~opam_repo
   and> platforms = platforms in
   let platforms = first_invariant_platform platforms |> remap_platforms in
   Examine_cache.run solver
-    { src; compiler_commit=(Some compiler_commit) }
+    { sandmark_package; src; compiler_commit=(Some compiler_commit) }
     { Examine.Value.opam_repository_commits; platforms; is_compiler=false; compiler_commit=(Some compiler_commit);
     sandmark_package=sandmark_package }

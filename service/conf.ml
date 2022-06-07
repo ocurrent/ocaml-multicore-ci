@@ -87,7 +87,7 @@ let platforms =
   let make_release ?arch ov =
     let distro = DD.tag_of_distro (master_distro :> DD.t) in
     let ov = OV.without_patch ov in
-    v ?arch (OV.to_string ov) distro ov 
+    v ?arch (OV.to_string ov) distro ov
   in
   match target with
   | `Mainline -> begin
@@ -110,11 +110,11 @@ let platforms =
 let opam_repository_repos = [
   `Mainline, ({ Github.Repo_id.owner="ocaml"; name="opam-repository" }, "master");
   `MulticoreTezos, ({ Github.Repo_id.owner="ocaml-multicore"; name="tezos-opam-repository" }, "5.00.0+trunk");
-  `Sandmark, ({Github.Repo_id.owner="moyodiallo"; name="sandmark-opam-repository"}, "master")
+  `Alpha, ({Github.Repo_id.owner="kit-ty-kate"; name="opam-alpha-repository"}, "master")
 ]
 
 let github_chosen_repos repos =
-  repos |> 
+  repos |>
   List.map (fun r ->
     let (repo, branch) = List.assoc r opam_repository_repos
     in Github.Api.Anonymous.head_of repo (`Ref ("refs/heads/" ^ branch))) |>
@@ -123,21 +123,21 @@ let github_chosen_repos repos =
 let opam_repository_commits =
   let chosen_repos = match target with
   | `Mainline -> [`Mainline]
-  | `Multicore -> [`Mainline]
+  | `Multicore -> [`Alpha; `Mainline]
   in
   chosen_repos |> github_chosen_repos
-    
-let tezos_opam_repository_commits = 
+
+let tezos_opam_repository_commits =
   let chosen_repos = match target with
   | `Mainline -> [`Mainline]
-  | `Multicore -> [`Mainline; `MulticoreTezos]
+  | `Multicore -> [`MulticoreTezos; `Mainline]
   in
   chosen_repos |> github_chosen_repos
 
 let sandmark_opam_repository_commits =
   let chosen_repos = match target with
   | `Mainline -> [`Mainline]
-  | `Multicore -> [`Mainline]
+  | `Multicore -> [`Alpha; `Mainline]
   in
   chosen_repos |> github_chosen_repos
 
@@ -177,8 +177,23 @@ let build_mechanism_for_package package =
   | _ -> `Build
 
 let sandmark_mechanisme_for_package package =
-  `Script ["opam install dune.2.9.3 -y"; "opam install --deps-only -yv "^package; "opam remove -y "^package; "opam install -vy "^package]
-  (*we use "opam install" because we consider the package is already pinned*)
+  let common = [
+    "opam repo add dependencies dependencies"
+    ; "rm -fr dependencies/packages/base-domains"
+    ; "rm -fr dependencies/packages/dune"
+	  ; "opam pin add -n --yes base.v0.14.3 https://github.com/janestreet/base.git#v0.14.3"
+	  ; "opam pin add -n --yes coq-core https://github.com/ejgallego/coq/archive/refs/tags/multicore-2021-09-29.tar.gz"
+	  ; "opam pin add -n --yes coq-stdlib https://github.com/ejgallego/coq/archive/refs/tags/multicore-2021-09-29.tar.gz"
+    ; "opam repo"
+    ; "opam update -u"
+    ; "ocamlrun -version"]
+  in
+  `Script(
+    common
+    @[
+      "opam depext --update -y "^package
+      ;"opam install --deps-only -yv "^package
+      ;"opam remove -y "^package; "opam install -vy "^package])
 
 let is_compiler_package package =
   match package with
