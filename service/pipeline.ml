@@ -134,12 +134,10 @@ let analysis_with_compiler_component ?label ?sandmark_package ~solver ~compiler_
   let opam_repository_commits = conf.opam_repository_commits in
   Analyse.examine_with_compiler ?sandmark_package ?label ~solver ~platforms ~opam_repository_commits ~compiler_commit commit
 
-let build_from_clone_component ?sandmark_package ?compiler_commit repo_clone =
+let build_from_clone_component ?compiler_commit repo_clone =
   let (repo_url, commit) = repo_clone in
   let (repo_url, _) = Repo_url_utils.url_gref_from_url repo_url in
-  match sandmark_package with
-  | None -> Build_from_clone_component.v ~repo_url ?compiler_commit commit
-  | Some p -> Sandmark_build.v ~repo_url ?compiler_commit commit p
+  Build_from_clone_component.v ~repo_url ?compiler_commit commit
 
 let cascade_component ~build (commit: Git.Commit.t Current.t) =
   Current.component "cascade" |>
@@ -187,7 +185,7 @@ let analyse_build_summarise ?ocluster ?sandmark_package ~solver ~repo ~is_compil
 
 let build_from_clone_with_compiler ?ocluster ?sandmark_package ~solver ?compiler_commit ~conf repo_clone =
   let (repo_url, _) = repo_clone in
-  let commit = build_from_clone_component ?sandmark_package ?compiler_commit repo_clone in
+  let commit = build_from_clone_component ?compiler_commit repo_clone in
   let hash = Current.map Git.Commit.hash commit in
   let label = Repo_url_utils.owner_name_gref_from_url repo_url in
   let is_compiler = is_compiler_from_repo_url conf repo_url in
@@ -236,11 +234,11 @@ let build_from_clone ?ocluster ?sandmark_package ~solver ~(conf:Conf.conf) (repo
     in
     Current.all downstream_builds
   else if Conf.is_sandmark repo_url then
-    let opam_repository_commit = Git.clone ~schedule:daily ~gref:"master" "https://github.com/ocaml/opam-repository.git" in
-    let packages = Sandmark_packages.v ~repo_url commit opam_repository_commit in
+    let packages = Sandmark_packages.v ~repo_url commit in
     let compiler_commit = Git.clone ~schedule:daily ~gref:"trunk" "https://github.com/ocaml/ocaml.git" in
     Current.component "cascade" |>
-    let** packages = packages in packages.packages
+    let** packages = packages in packages
+    |> List.filter (fun package -> not (Conf.is_skipped_sandmark_package package))
     |> List.map (fun package ->
         let build =
           build_with_compiler ?ocluster ~solver ?sandmark_package:(Some package) ~compiler_gref:"trunk" ~compiler_commit ~repo_url ~conf commit

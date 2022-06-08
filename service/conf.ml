@@ -216,8 +216,14 @@ let is_compiler_blocklisted ov package =
   end
   | _ -> false
 
-
 let is_sandmark url = String.equal url "https://github.com/ocaml-bench/sandmark.git@main"
+
+let is_skipped_sandmark_package package =
+  match package with
+  | "ocaml.5.0.0+trunk"  | "base-unix.base"
+  | "base-bigarray.base" | "base-domains.base"
+  | "base-threads.base" -> true
+  | _ -> false
 
 type conf = {
   opam_repository_commits  : Current_git.Commit_id.t list Current.t
