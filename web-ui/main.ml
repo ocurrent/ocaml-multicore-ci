@@ -31,7 +31,9 @@ let crunch ?content_type ?(max_age=86400) path =
     ] in
     Server.respond_string ~status:`OK ~headers ~body ()
 
-let handle_request ~backend ~docroot ~graphql_callback conn request body =
+module Graphql_cohttp_lwt = Graphql_cohttp.Make (Graphql_lwt.Schema) (Cohttp_lwt_unix.IO) (Cohttp_lwt.Body)
+
+let handle_request ~backend ~docroot ~admin_service_uri conn request body =
   let meth = Cohttp.Request.meth request in
   let uri = Cohttp.Request.uri request in
   let path = Uri.path uri in
@@ -43,6 +45,8 @@ let handle_request ~backend ~docroot ~graphql_callback conn request body =
   | `OPTIONS, ("graphql" :: _) ->
     Server.respond_string ~status:`OK ~headers:response_headers ~body:"" () |> normal_response
   | _, ("graphql" :: _) ->
+    let%lwt ci = Backend.ci backend in
+    let graphql_callback = Graphql_cohttp_lwt.make_callback (fun _req -> ()) (Ci_graphql.schema ~admin_service_uri ci) in
     let resp = graphql_callback conn request body in
     let open Server.IO in
     let open Cohttp.Response in
@@ -76,8 +80,6 @@ let handle_request ~backend ~docroot ~graphql_callback conn request body =
 let pp_mode f mode =
   Sexplib.Sexp.pp_hum f (Conduit_lwt_unix.sexp_of_server mode)
 
-module Graphql_cohttp_lwt = Graphql_cohttp.Make (Graphql_lwt.Schema) (Cohttp_lwt_unix.IO) (Cohttp_lwt.Body)
-
 let main port backend_uri admin_service_uri docroot prometheus_config =
   Lwt_main.run begin
     let admin_service_uri = match String.cut ~sep:"/" ~rev:true (String.trim admin_service_uri) with
@@ -87,9 +89,7 @@ let main port backend_uri admin_service_uri docroot prometheus_config =
     let vat = Capnp_rpc_unix.client_only_vat () in
     let backend_sr = Capnp_rpc_unix.Vat.import_exn vat backend_uri in
     let backend = Backend.make backend_sr in
-    let%lwt ci = Backend.ci backend in
-    let graphql_callback = Graphql_cohttp_lwt.make_callback (fun _req -> ()) (Ci_graphql.schema ~admin_service_uri ci) in
-    let config = Server.make_response_action ~callback:(handle_request ~backend ~docroot ~graphql_callback) () in
+    let config = Server.make_response_action ~callback:(handle_request ~backend ~docroot ~admin_service_uri) () in
     let mode = `TCP (`Port port) in
     Log.info (fun f -> f "Starting web server: %a" pp_mode mode);
     let web =
