@@ -133,7 +133,7 @@ let admin_service_uri =
 
 let docroot =
   Arg.value @@
-  Arg.opt Arg.string "web-app/build" @@
+  Arg.opt Arg.string "_build" @@
   Arg.info
     ~doc:"The docroot for the web UI. This is used to find the built JavaScript and images etc."
     ~docv:"PATH"

@@ -60,7 +60,7 @@ let remap_capnp_err result
   = Lwt_result.map_error (function `Capnp err -> Fmt.to_to_string Capnp_rpc.Error.pp err) result
 
 let convert_job_state (x: Client.State.t) =
-match x with
+  match x with
 | NotStarted -> NotStarted
 | Passed -> Passed
 | Failed _ -> Failed

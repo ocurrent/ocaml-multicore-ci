@@ -87,6 +87,7 @@
   (graphql-lwt (>= 0.14.0))
   conf-libev
   ppx_deriving_yojson))
+
 (package
  (name ocaml-multicore-ci-client)
  (synopsis "Command-line client for ocaml-multicore-ci")
@@ -97,3 +98,10 @@
   (capnp-rpc-unix (>= 1.2))
   ocaml-multicore-ci-api
   dockerfile))
+
+(package
+ (name bonsai-app)
+ (synopsis "Bonsai JSOO UI")
+ (depends
+  (bonsai (= v0.15.0))
+  js_of_ocaml))
