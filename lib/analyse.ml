@@ -342,8 +342,7 @@ module Analysis = struct
       Lwt_result.return r
     )
 
-    let of_dir_sandmark ~solver ~job ~platforms ~opam_repository_commits ~package_name ?is_compiler ?compiler_commit _ =
-      let _ = solver in
+    let of_dir_sandmark ~job ~platforms ~opam_repository_commits ~package_name ?is_compiler ?compiler_commit () =
       let is_compiler = Option.value is_compiler ~default:false in
       Current.Job.log job
       "Analysing %s: @[<v>platforms=@[%a@]@,opam_repository_commits=@[%a@]@,is_compiler=%a@,compiler_commit=%a@]"
@@ -431,7 +430,7 @@ module Examine = struct
     match sandmark_package with
     | None -> Analysis.of_dir ~solver ~platforms ~opam_repository_commits ~job ~package_name ~is_compiler ?compiler_commit src
     | Some package_name ->
-      Analysis.of_dir_sandmark ~solver ~platforms ~opam_repository_commits ~job ~package_name ~is_compiler ?compiler_commit src
+      Analysis.of_dir_sandmark ~platforms ~opam_repository_commits ~job ~package_name ~is_compiler ?compiler_commit ()
 
   let pp f (k, v) = Fmt.pf f "Analyse %s %s" (Key.digest k) (Value.digest v)
 
@@ -490,7 +489,7 @@ let examine ?label ?sandmark_package ~solver ~platforms ~opam_repository_commits
   let opam_repository_commits = opam_repos_for_package ~is_compiler opam_repository_commits in
   Examine_cache.run solver
     { sandmark_package; src; compiler_commit=None }
-    { Examine.Value.opam_repository_commits; platforms; is_compiler; compiler_commit=None; sandmark_package=sandmark_package }
+    { Examine.Value.opam_repository_commits; platforms; is_compiler; compiler_commit=None; sandmark_package}
 
 let examine_with_compiler ?label ?sandmark_package ~solver ~platforms ~opam_repository_commits ~compiler_commit src =
   Current.component "Analysis@ %a" Fmt.(option string) label |>
@@ -502,4 +501,4 @@ let examine_with_compiler ?label ?sandmark_package ~solver ~platforms ~opam_repo
   Examine_cache.run solver
     { sandmark_package; src; compiler_commit=(Some compiler_commit) }
     { Examine.Value.opam_repository_commits; platforms; is_compiler=false; compiler_commit=(Some compiler_commit);
-    sandmark_package=sandmark_package }
+    sandmark_package }

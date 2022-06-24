@@ -126,7 +126,8 @@ let update_opam_repository selection =
        git reset -q --hard %s && git log --no-decorate -n1 --oneline " commit commit;
   ] @
   List.map (fun (repo,commit) ->
-    if String.equal repo default then run "opam repo priority default 1 --set-default"
+    if String.equal repo default
+    then run "opam repo priority default 1 --set-default"
     else run "opam repo add rep-%s %s --set-default" (String.sub commit 0 7) repo) commits_in_order @
   [run "opam update -u"]
 

@@ -85,7 +85,7 @@ let platforms =
       [v label tag ov]
   in
   let make_release ?arch ov =
-    let distro = DD.tag_of_distro (master_distro :> DD.t) in
+    let distro = DD.tag_of_distro master_distro in
     let ov = OV.without_patch ov in
     v ?arch (OV.to_string ov) distro ov
   in
@@ -181,9 +181,6 @@ let sandmark_mechanisme_for_package package =
     "opam repo add dependencies dependencies"
     ; "rm -fr dependencies/packages/base-domains"
     ; "rm -fr dependencies/packages/dune"
-	  ; "opam pin add -n --yes base.v0.14.3 https://github.com/janestreet/base.git#v0.14.3"
-	  ; "opam pin add -n --yes coq-core https://github.com/ejgallego/coq/archive/refs/tags/multicore-2021-09-29.tar.gz"
-	  ; "opam pin add -n --yes coq-stdlib https://github.com/ejgallego/coq/archive/refs/tags/multicore-2021-09-29.tar.gz"
     ; "opam repo"
     ; "opam update -u"
     ; "ocamlrun -version"]

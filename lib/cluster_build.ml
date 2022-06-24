@@ -28,7 +28,7 @@ module Op = struct
       repo : string;                            (* Used to choose a build cache *)
       test_repo : string option;                       (* The repo under test, if repo is a compiler *)
       label : string;                           (* A unique ID for this build within the commit *)
-      sandmark_package: string option
+      sandmark_package: string option           (*A package name which we want to build or install, this is helpful if we want to use this build for a specific package instead of the repo*)
     }
 
     let to_json { pool; commit; compiler_commit; label; repo; test_repo; sandmark_package } =
