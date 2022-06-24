@@ -74,7 +74,7 @@ module Op = struct
     let unmarshal s =
     match Yojson.Safe.from_string s |> of_yojson with
     | Ok x -> x
-    | Error e -> failwith e
+    | Error e -> Fmt.failwith "Fail to parse the type from the cache %s" e
 
   end
 
