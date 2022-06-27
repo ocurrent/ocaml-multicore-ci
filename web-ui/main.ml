@@ -82,6 +82,10 @@ let pp_mode f mode =
 
 let main port backend_uri admin_service_uri docroot prometheus_config =
   Lwt_main.run begin
+    let admin_service_uri = match String.cut ~sep:"/" ~rev:true (String.trim admin_service_uri) with
+    | Some (uri,"") -> uri
+    | _ -> admin_service_uri
+    in
     let vat = Capnp_rpc_unix.client_only_vat () in
     let backend_sr = Capnp_rpc_unix.Vat.import_exn vat backend_uri in
     let backend = Backend.make backend_sr in
