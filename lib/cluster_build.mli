@@ -8,6 +8,7 @@ val v :
   repo:string Current.t ->
   ?test_repo:string ->
   ?compiler_commit:Current_git.Commit_id.t Current.t ->
+  ?sandmark_package:string ->
   spec:Spec.t Current.t ->
   Current_git.Commit_id.t Current.t ->
   ([> `Built | `Checked ] Current_term.Output.t * Current.job_id option) Current.t

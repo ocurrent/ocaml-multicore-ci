@@ -24,6 +24,7 @@ end
 
 val examine :
   ?label:string ->
+  ?sandmark_package: string ->
   solver:Ocaml_multicore_ci_api.Solver.t ->
   platforms:Platform.t list Current.t ->
   opam_repository_commits:Current_git.Commit_id.t list Current.t ->
@@ -37,6 +38,7 @@ val examine :
 
 val examine_with_compiler :
   ?label:string ->
+  ?sandmark_package:string ->
   solver:Ocaml_multicore_ci_api.Solver.t ->
   platforms:Platform.t list Current.t ->
   opam_repository_commits:Current_git.Commit_id.t list Current.t ->

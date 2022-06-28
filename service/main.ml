@@ -90,10 +90,15 @@ let main config mode app capnp_address github_auth submission_uri : ('a, [`Msg o
   Lwt_main.run begin
     run_capnp capnp_address >>= fun (vat, rpc_engine_resolver) ->
     let ocluster = Option.map (Capnp_rpc_unix.Vat.import_exn vat) submission_uri in
-    let engine = Current.Engine.create ~config (Pipeline.v ?ocluster ~solver) in
+    let confs = Conf.configs in
+    let engine = Current.Engine.create ~config (Pipeline.v ?ocluster ~solver ~confs) in
     rpc_engine_resolver |> Option.iter (fun r -> Capability.resolve_ok r (Api_impl.make_ci ~engine));
     let authn = Option.map Current_github.Auth.make_login_uri github_auth in
-    let webhook_secret = Current_github.App.webhook_secret app in
+    let webhook_secret =
+      match app with
+      | Some app -> Current_github.App.webhook_secret app
+      | None -> ""
+    in
     let has_role =
       if github_auth = None then Current_web.Site.allow_all
       else has_role
@@ -130,15 +135,29 @@ let submission_service =
     ~docv:"FILE"
     ["submission-service"]
 
-let cmd =
+let github_app_id =
+  Arg.required @@
+  Arg.opt Arg.(some string) None @@
+  Arg.info ["github-app-id"]
+
+let cmd ~with_github =
   let doc = "Build OCaml projects on GitHub" in
   let term = Term.(
+    let gh_cmd = if with_github then
+      const (fun x -> Some x) $ Current_github.App.cmdliner
+    else
+      const None
+    in
     term_result (
       const main $ Current.Config.cmdliner $ Current_web.cmdliner $
-      Current_github.App.cmdliner $
+      gh_cmd $
       capnp_address $ Current_github.Auth.cmdliner $ submission_service)) in
   let info = Cmd.info "ocaml-multicore-ci" ~doc in
   Cmd.v info term
 
 let () =
-  Cmd.eval cmd |> exit
+  let with_github = match Cmd.eval_peek_opts github_app_id with
+  | (None, _) -> false
+  | (Some _, _) -> true
+  in
+  Cmd.eval (cmd ~with_github) |> exit

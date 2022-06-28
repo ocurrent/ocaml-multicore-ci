@@ -113,15 +113,23 @@ let install_os_deps selection =
     comment "Preamble" :: result
 
 let update_opam_repository selection =
-  let { Selection.commit; _ } = selection in
+  let { Selection.commits; _ } = selection in
+  let commits_in_order = List.rev commits in
+  let default = "https://github.com/ocaml/opam-repository.git" in
+  let commit,_ = List.partition (fun y -> String.equal default (fst y)) commits in
+  let _,commit = List.hd commit in
   [
     comment "Update opam-repository";
     workdir "/home/opam/opam-repository";
     run
       "(git cat-file -e %s || git fetch origin master) && \
-       git reset -q --hard %s && git log --no-decorate -n1 --oneline \
-       && opam update -u" commit commit;
-  ]
+       git reset -q --hard %s && git log --no-decorate -n1 --oneline " commit commit;
+  ] @
+  List.map (fun (repo,commit) ->
+    if String.equal repo default
+    then run "opam repo priority default 1 --set-default"
+    else run "opam repo add rep-%s %s --set-default" (String.sub commit 0 7) repo) commits_in_order @
+  [run "opam update -u"]
 
 let copy_src =
   [
