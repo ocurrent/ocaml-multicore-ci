@@ -56,8 +56,7 @@ end
 let lwt_result_map_list f result =
   Lwt_result.map (fun rs -> List.map f rs) result
 
-let remap_capnp_err result
-  = Lwt_result.map_error (function `Capnp err -> Fmt.to_to_string Capnp_rpc.Error.pp err) result
+let remap_capnp_err result = Lwt_result.map_error (function `Capnp err -> Fmt.to_to_string Capnp_rpc.Error.pp err) result
 
 let convert_job_state (x: Client.State.t) =
   match x with

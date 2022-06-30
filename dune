@@ -1,2 +1,2 @@
-(dirs :standard \ var web-app bonsai-app)
+(dirs :standard \ var web-app)
 (vendored_dirs capnp-ocaml capnp-rpc ocurrent opam-0install-solver ocluster ocaml-version ocaml-dockerfile)
