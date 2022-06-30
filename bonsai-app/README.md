@@ -21,6 +21,6 @@ dune exec -- ocaml-multicore-ci-service --github-app-id 123448  \
 
 Run web server
 ``` shell
-dune exec -- ocaml-multicore-ci-web    --backend ./capnp-secrets/ocaml-ci-admin.cap
+dune exec -- ocaml-multicore-ci-web --backend ./capnp-secrets/ocaml-ci-admin.cap
 ```
 
