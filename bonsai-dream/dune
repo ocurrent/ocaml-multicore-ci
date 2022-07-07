@@ -1,0 +1,11 @@
+(executable
+ (name main)
+ (modules main template ci_graphql backend)
+ (libraries
+   dream
+   graphql-cohttp
+   tyxml
+   graphql-lwt
+   ocaml-multicore-ci-api
+   capnp-rpc-unix
+))

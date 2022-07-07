@@ -1,5 +1,5 @@
 (executables
- (names bonsai_app)
+ (names bonsai_app )
  (modes js)
  (libraries
    js_of_ocaml
@@ -8,8 +8,7 @@
    bonsai.web_ui_form
    ppx_typed_fields.typed_variants_lib
    ppx_typed_fields.typed_fields_lib
-   bonsai.extra)
+   multicore_graphql)
 
  (preprocess
   (pps ppx_jane js_of_ocaml-ppx ppx_typed_fields ppx_css)))
-

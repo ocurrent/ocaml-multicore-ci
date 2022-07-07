@@ -104,4 +104,15 @@
  (synopsis "Bonsai JSOO UI")
  (depends
   (bonsai (= v0.15.0))
-  js_of_ocaml))
+   js_of_ocaml
+   cohttp-lwt-jsoo
+   graphql_ppx
+   ppx_yojson_conv
+))
+
+(package
+ (name bonsai-dream)
+ (synopsis "Dream GraphQL server")
+ (depends
+  (dream (= 1.0.0~alpha4))))
+
