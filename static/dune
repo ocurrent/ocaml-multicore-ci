@@ -1,0 +1,7 @@
+;; Copies the JSOO file from bonsai-app into static for bonsai-dream to serve.
+(rule
+ (deps ../bonsai-app/bonsai_app.bc.js)
+ (target ./bonsai_app.bc.js )
+ (mode
+  (promote (until-clean)))
+ (action (copy %{deps} %{target})))
