@@ -9,3 +9,5 @@ var
 .vscode
 capnp-secrets/
 tags
+/bonsai-app/graphql/.graphql_ppx_cache/
+/static/bonsai_app.bc.js

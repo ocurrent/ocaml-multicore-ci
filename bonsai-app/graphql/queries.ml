@@ -40,6 +40,10 @@ end
    query OrgQuery {
      orgs {
        name
+       repos {
+         name
+         master_status
+       }
      }
    }
 |}]
