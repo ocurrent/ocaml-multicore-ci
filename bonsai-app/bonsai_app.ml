@@ -5,7 +5,9 @@ open Bonsai.Let_syntax
 module G = Multicore_graphql
 module M = Models
 
-let component _orgs = 
+
+
+let component orgs = 
   let title_router = function
     | path -> (
       match%sub Value.map ~f:(fun p -> p |> String.split ~on:'/' |> List.filter ~f:(fun str -> String.(str <> ""))) path with
@@ -17,7 +19,7 @@ let component _orgs =
     | path -> (
       match%sub Value.map ~f:(fun p -> p |> String.split ~on:'/' |> List.filter ~f:(fun str -> String.(str <> ""))) path with
       | [] -> Bonsai.const @@ Vdom.Node.text "Multcore CI - empty body"
-      | _ -> Bonsai.const @@ Vdom.Node.table ~attr:(Vdom.Attr.classes [ "table" ]) Template.pipelines
+      | _ -> Template.pipelines orgs
     )
   in
 

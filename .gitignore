@@ -8,3 +8,5 @@ var
 .idea
 .vscode
 capnp-secrets/
+/bonsai-app/graphql/.graphql_ppx_cache/
+/static/bonsai_app.bc.js
