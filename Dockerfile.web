@@ -2,23 +2,23 @@ FROM ocaml/opam:debian-11-ocaml-4.14@sha256:70bd0da74f68550d667cc1a8ae80661e694c
 RUN curl -sL https://deb.nodesource.com/setup_14.x | sudo bash -
 RUN curl -sL https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -
 RUN echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
-RUN sudo apt-get update && sudo apt-get install libev-dev capnproto m4 pkg-config libgmp-dev nodejs yarn -y --no-install-recommends
+RUN sudo apt-get update && sudo apt-get install libev-dev capnproto m4 pkg-config libgmp-dev nodejs yarn libssl-dev -y --no-install-recommends
 RUN cd ~/opam-repository && git pull origin master && git reset --hard edb83a8bd94d816d2957fe8ee59f4617d67529fd && opam update
 COPY --chown=opam \
 	ocurrent/current_rpc.opam \
 	/src/ocurrent/
 WORKDIR /src
 RUN opam pin -yn add ./ocurrent
-COPY --chown=opam ocaml-multicore-ci-api.opam ocaml-multicore-ci-web.opam /src/
+COPY --chown=opam ocaml-multicore-ci-api.opam bonsai-dream.opam /src/
 RUN opam install -y --deps-only .
 ADD --chown=opam . .
-RUN opam config exec -- dune build ./_build/install/default/bin/ocaml-multicore-ci-web
+RUN opam config exec -- dune build ./_build/install/default/bin/bonsai-dream 
 RUN cd /src/web-app && yarn install && yarn build
 
 FROM debian:11
 RUN apt-get update && apt-get install libev4 ca-certificates dumb-init -y --no-install-recommends
 WORKDIR /
-ENTRYPOINT ["/usr/bin/dumb-init", "--", "/usr/local/bin/ocaml-multicore-ci-web", "--admin-service-uri", "https://multicore.ci.ocamllabs.io:8100/", "--docroot", "/srv"]
+ENTRYPOINT ["/usr/bin/dumb-init", "--", "/usr/local/bin/bonsai-dream", "--admin-service-uri", "https://multicore.ci.ocamllabs.io:8100/", "--docroot", "/srv"]
 EXPOSE 8090/tcp
-COPY --from=build /src/_build/install/default/bin/ocaml-multicore-ci-web /usr/local/bin/
+COPY --from=build /src/_build/install/default/bin/bonsai-dream /usr/local/bin/
 COPY --from=build /src/web-app/build/ /srv/

@@ -31,8 +31,6 @@ let skeleton ?(nav = Vdom.Node.none) title body =
         ];
     ]
 
-
-
 let pipelines (orgs : Multicore_graphql.Queries.OrgQuery.t_orgs array Value.t) : Vdom.Node.t Computation.t =
   let render_master_status (x : G.Queries.OrgQuery.t_orgs_repos_master_status) = match x with
     | `NotStarted -> "not started"
@@ -61,24 +59,5 @@ let pipelines (orgs : Multicore_graphql.Queries.OrgQuery.t_orgs array Value.t) :
       ] ]
   ; Vdom.Node.tbody ~key:"pipelines-key" ~attr:(Vdom.Attr.class_ "pipeline-tbody")
       (List.concat @@ Array.to_list (Array.map orgs ~f:pipeline))
-    (* [ Vdom.Node.tr [ *)
-    (*       Vdom.Node.th [Vdom.Node.text "123"]; *)
-    (*       Vdom.Node.td [Vdom.Node.text "tmcgilchrist/ocaml-gitlab"]; *)
-    (*       Vdom.Node.td [Vdom.Node.text "Passed"]; *)
-    (*       Vdom.Node.td [Vdom.Node.text "GitHub"]; *)
-    (*     ]; *)
-      (* Vdom.Node.tr [ *)
-      (*     Vdom.Node.th [Vdom.Node.text "456"]; *)
-      (*     Vdom.Node.td [Vdom.Node.text "tmcgilchrist/ocaml-changes"]; *)
-      (*     Vdom.Node.td [Vdom.Node.text "Failed"]; *)
-      (*     Vdom.Node.td [Vdom.Node.text "GitHub"]; *)
-      (*   ]; *)
-      (* Vdom.Node.tr [ *)
-      (*     Vdom.Node.th [Vdom.Node.text "456"]; *)
-      (*     Vdom.Node.td [Vdom.Node.text "inhabitedtype/ocaml-aws"]; *)
-      (*     Vdom.Node.td [Vdom.Node.text "Failed"]; *)
-      (*     Vdom.Node.td [Vdom.Node.text "GitHub"]; *)
-      (*   ]; *)
-    (* ] *)
   ]
 

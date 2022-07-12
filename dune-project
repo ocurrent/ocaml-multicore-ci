@@ -114,5 +114,13 @@
  (name bonsai-dream)
  (synopsis "Dream GraphQL server")
  (depends
-  (dream (= 1.0.0~alpha4))))
+  (dream (= 1.0.0~alpha4))
+  (prometheus-app (>= 1.0))
+  (cmdliner (>= 1.1.0))
+  (cohttp-lwt-unix (>= 2.2.0))
+  (capnp-rpc-unix (>= 1.2))
+   graphql
+   graphql-cohttp
+   graphql-lwt
+   tyxml))
 
