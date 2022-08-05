@@ -123,7 +123,7 @@ let list_orgs ci : (Org.t list, string) Lwt_result.t =
        { Org.name; org }
     )
 
-let config = Schema.(obj "config" ~fields:(fun _ -> [
+let config = Schema.(obj "config" ~fields:([
   field "admin_service_uri"
     ~args:Arg.[]
     ~typ:(non_null string)
@@ -149,7 +149,7 @@ let job_state = Schema.(enum "job_state"
   ]
 )
 
-let job_info = Schema.(obj "job_info" ~fields:(fun _ -> [
+let job_info = Schema.(obj "job_info" ~fields:([
   field "owner"
     ~args:Arg.[]
     ~typ:(non_null string)
@@ -180,7 +180,7 @@ let job_info = Schema.(obj "job_info" ~fields:(fun _ -> [
     ~resolve:(fun _ p -> p.Job_info.error);
 ]))
 
-let ref_info = Schema.(obj "ref_info" ~fields:(fun _ -> [
+let ref_info = Schema.(obj "ref_info" ~fields:([
   field "gref"
     ~args:Arg.[]
     ~typ:(non_null string)
@@ -199,7 +199,7 @@ let ref_info = Schema.(obj "ref_info" ~fields:(fun _ -> [
     ~resolve:(fun _ p -> list_jobs p.Ref_info.commit);
 ]))
 
-let repo_info = Schema.(obj "repo_info" ~fields:(fun _ -> [
+let repo_info = Schema.(obj "repo_info" ~fields:([
   field "name"
     ~args:Arg.[]
     ~typ:(non_null string)
@@ -214,7 +214,7 @@ let repo_info = Schema.(obj "repo_info" ~fields:(fun _ -> [
     ~resolve:(fun _ p -> list_refs p.Repo_info.repo);
 ]))
 
-let org = Schema.(obj "org" ~fields:(fun _ -> [
+let org = Schema.(obj "org" ~fields:([
   field "name"
     ~args:Arg.[]
     ~typ:(non_null string)
