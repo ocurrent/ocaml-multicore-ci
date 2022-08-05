@@ -1,12 +1,11 @@
 (*
   TODO
   - prometheus serving
-  - parse extra cil arguments
+  - parse extra cli arguments
   
  *)
 let () =
   Prometheus_unix.Logging.init ()
-
 
 let default_query =
   "{\\n  orgs {\\n    name\\n  }\\n}\\n"
@@ -25,7 +24,7 @@ let main port backend_uri admin_service_uri _docroot prometheus_config =
     let backend = Backend.make backend_sr in
     Backend.ci backend >>= fun ci ->
 
-    let web =
+    let web : unit Lwt.t =
       Dream.serve ~port
       @@ Dream.logger
       @@ Dream.origin_referrer_check

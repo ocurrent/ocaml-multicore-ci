@@ -4,7 +4,7 @@
  (package bonsai-dream)
  (libraries
    dream
-   graphql-cohttp
+   ; graphql-cohttp
    tyxml
    graphql-lwt
    ocaml-multicore-ci-api
