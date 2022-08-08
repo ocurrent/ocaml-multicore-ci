@@ -84,7 +84,7 @@
   ocaml-multicore-ci-api
   graphql
   graphql-cohttp
-  graphql-lwt
+  (graphql-lwt (>= 0.14.0))
   conf-libev
   ppx_deriving_yojson))
 (package
