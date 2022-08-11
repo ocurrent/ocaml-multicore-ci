@@ -87,6 +87,7 @@
   (graphql-lwt (>= 0.14.0))
   conf-libev
   ppx_deriving_yojson))
+
 (package
  (name ocaml-multicore-ci-client)
  (synopsis "Command-line client for ocaml-multicore-ci")
@@ -97,3 +98,29 @@
   (capnp-rpc-unix (>= 1.2))
   ocaml-multicore-ci-api
   dockerfile))
+
+(package
+ (name bonsai-app)
+ (synopsis "Bonsai JSOO UI")
+ (depends
+  (bonsai (= v0.15.0))
+   js_of_ocaml
+   cohttp-lwt-jsoo
+   graphql_ppx
+   ppx_yojson_conv
+))
+
+(package
+ (name bonsai-dream)
+ (synopsis "Dream GraphQL server")
+ (depends
+  (dream (= 1.0.0~alpha4))
+  (prometheus-app (>= 1.0))
+  (cmdliner (>= 1.1.0))
+  (cohttp-lwt-unix (>= 2.2.0))
+  (capnp-rpc-unix (>= 1.2))
+   graphql
+   graphql-cohttp
+   graphql-lwt
+   tyxml))
+

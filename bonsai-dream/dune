@@ -1,0 +1,12 @@
+(executable
+ (name main)
+ (public_name bonsai-dream)
+ (package bonsai-dream)
+ (libraries
+   dream
+   ; graphql-cohttp
+   tyxml
+   graphql-lwt
+   ocaml-multicore-ci-api
+   prometheus-app.unix
+   capnp-rpc-unix))
