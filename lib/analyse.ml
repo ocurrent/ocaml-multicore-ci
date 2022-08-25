@@ -268,6 +268,7 @@ module Analysis = struct
       }
     in
     Capnp_rpc_lwt.Capability.with_ref (job_log job) @@ fun log ->
+    Backend_solver.ci solver >>= fun solver ->
     Ocaml_multicore_ci_api.Solver.solve solver request ~log >|= function
     | Ok [] -> Fmt.error_msg "No solution found for any supported platform"
     | Ok x -> Ok (List.map Selection.of_worker x)
@@ -364,7 +365,7 @@ let platforms_to_yojson platforms =
   `List (List.map platform_to_yojson platforms)
 
 module Examine = struct
-  type t = Ocaml_multicore_ci_api.Solver.t
+  type t = Backend_solver.t
 
   module Key = struct
     type t = {

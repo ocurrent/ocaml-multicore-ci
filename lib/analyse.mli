@@ -11,7 +11,7 @@ module Analysis : sig
     ]
 
   val of_dir :
-    solver:Ocaml_multicore_ci_api.Solver.t ->
+    solver: Backend_solver.t ->
     job:Current.Job.t ->
     platforms:(Variant.t * Ocaml_multicore_ci_api.Worker.Vars.t) list ->
     opam_repository_commits:Current_git.Commit_id.t list ->
@@ -25,7 +25,7 @@ end
 val examine :
   ?label:string ->
   ?sandmark_package: string ->
-  solver:Ocaml_multicore_ci_api.Solver.t ->
+  solver: Backend_solver.t ->
   platforms:Platform.t list Current.t ->
   opam_repository_commits:Current_git.Commit_id.t list Current.t ->
   is_compiler:bool ->
@@ -39,7 +39,7 @@ val examine :
 val examine_with_compiler :
   ?label:string ->
   ?sandmark_package:string ->
-  solver:Ocaml_multicore_ci_api.Solver.t ->
+  solver: Backend_solver.t ->
   platforms:Platform.t list Current.t ->
   opam_repository_commits:Current_git.Commit_id.t list Current.t ->
   compiler_commit:Current_git.Commit_id.t Current.t ->

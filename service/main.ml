@@ -40,7 +40,12 @@ module Metrics = struct
     Gauge.set (master "active") (float_of_int active)
 end
 
-let solver = Ocaml_multicore_ci.Solver_pool.spawn_local ()
+let solver  = function
+  | None     -> Ocaml_multicore_ci.Backend_solver.local ()
+  | Some uri ->
+    let vat = Capnp_rpc_unix.client_only_vat () in
+    let sr = Capnp_rpc_unix.Vat.import_exn vat uri in
+    Ocaml_multicore_ci.Backend_solver.make sr
 
 let () =
   Prometheus_unix.Logging.init ();
@@ -86,11 +91,12 @@ let has_role user = function
            ) -> true
     | _ -> false
 
-let main config mode app capnp_address github_auth submission_uri : ('a, [`Msg of string]) result =
+let main config mode app capnp_address github_auth submission_uri solver_uri : ('a, [`Msg of string]) result =
   Lwt_main.run begin
     run_capnp capnp_address >>= fun (vat, rpc_engine_resolver) ->
     let ocluster = Option.map (Capnp_rpc_unix.Vat.import_exn vat) submission_uri in
     let confs = Conf.configs in
+    let solver = solver solver_uri in
     let engine = Current.Engine.create ~config (Pipeline.v ?ocluster ~solver ~confs) in
     rpc_engine_resolver |> Option.iter (fun r -> Capability.resolve_ok r (Api_impl.make_ci ~engine));
     let authn = Option.map Current_github.Auth.make_login_uri github_auth in
@@ -135,6 +141,14 @@ let submission_service =
     ~docv:"FILE"
     ["submission-service"]
 
+let solver_service =
+  Arg.value @@
+  Arg.opt Arg.(some Capnp_rpc_unix.sturdy_uri) None @@
+  Arg.info
+    ~doc:"The solver.cap file for the sovler scheduler service"
+    ~docv:"FILE"
+    ["solver-service"]
+
 let github_app_id =
   Arg.required @@
   Arg.opt Arg.(some string) None @@
@@ -151,7 +165,7 @@ let cmd ~with_github =
     term_result (
       const main $ Current.Config.cmdliner $ Current_web.cmdliner $
       gh_cmd $
-      capnp_address $ Current_github.Auth.cmdliner $ submission_service)) in
+      capnp_address $ Current_github.Auth.cmdliner $ submission_service $ solver_service)) in
   let info = Cmd.info "ocaml-multicore-ci" ~doc in
   Cmd.v info term
 
