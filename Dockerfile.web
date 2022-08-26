@@ -3,7 +3,7 @@ RUN curl -sL https://deb.nodesource.com/setup_14.x | sudo bash -
 RUN curl -sL https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -
 RUN echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
 RUN sudo apt-get update && sudo apt-get install libev-dev capnproto m4 pkg-config libgmp-dev nodejs yarn -y --no-install-recommends
-RUN cd ~/opam-repository && git pull origin master && git reset --hard edb83a8bd94d816d2957fe8ee59f4617d67529fd && opam update
+RUN cd ~/opam-repository && git pull origin master && git reset --hard ec387d9c255ba187a10c49b7ac0ce26b727d9a0b && opam update
 COPY --chown=opam \
 	ocurrent/current_rpc.opam \
 	/src/ocurrent/
