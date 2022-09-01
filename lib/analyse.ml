@@ -268,8 +268,7 @@ module Analysis = struct
       }
     in
     Capnp_rpc_lwt.Capability.with_ref (job_log job) @@ fun log ->
-    Backend_solver.ci solver >>= fun solver ->
-    Ocaml_multicore_ci_api.Solver.solve solver request ~log >|= function
+    Backend_solver.solve solver job request ~log >|= function
     | Ok [] -> Fmt.error_msg "No solution found for any supported platform"
     | Ok x -> Ok (List.map Selection.of_worker x)
     | Error (`Msg msg) -> Fmt.error_msg "Error from solver: %s" msg
@@ -426,11 +425,12 @@ module Examine = struct
 
   let run solver job { Key.src; _ } { Value.opam_repository_commits; platforms; is_compiler; compiler_commit; sandmark_package } =
     let package_name = package_name_from_commit src in
-    Current.Job.start job ~pool ~level:Current.Level.Harmless >>= fun () ->
+    (* Current.Job.start job ~pool ~level:Current.Level.Harmless >>= fun () -> *)
     Current_git.with_checkout ~job src @@ fun src ->
     match sandmark_package with
     | None -> Analysis.of_dir ~solver ~platforms ~opam_repository_commits ~job ~package_name ~is_compiler ?compiler_commit src
     | Some package_name ->
+      Current.Job.start job ~pool ~level:Current.Level.Harmless >>= fun () ->
       Analysis.of_dir_sandmark ~platforms ~opam_repository_commits ~job ~package_name ~is_compiler ?compiler_commit ()
 
   let pp f (k, v) = Fmt.pf f "Analyse %s %s" (Key.digest k) (Value.digest v)

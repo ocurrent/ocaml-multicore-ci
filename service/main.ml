@@ -40,13 +40,6 @@ module Metrics = struct
     Gauge.set (master "active") (float_of_int active)
 end
 
-let solver  = function
-  | None     -> Ocaml_multicore_ci.Backend_solver.local ()
-  | Some uri ->
-    let vat = Capnp_rpc_unix.client_only_vat () in
-    let sr = Capnp_rpc_unix.Vat.import_exn vat uri in
-    Ocaml_multicore_ci.Backend_solver.make sr
-
 let () =
   Prometheus_unix.Logging.init ();
   Mirage_crypto_rng_unix.initialize ();
@@ -96,7 +89,7 @@ let main config mode app capnp_address github_auth submission_uri solver_uri : (
     run_capnp capnp_address >>= fun (vat, rpc_engine_resolver) ->
     let ocluster = Option.map (Capnp_rpc_unix.Vat.import_exn vat) submission_uri in
     let confs = Conf.configs in
-    let solver = solver solver_uri in
+    let solver = Ocaml_multicore_ci.Backend_solver.create solver_uri in
     let engine = Current.Engine.create ~config (Pipeline.v ?ocluster ~solver ~confs) in
     rpc_engine_resolver |> Option.iter (fun r -> Capability.resolve_ok r (Api_impl.make_ci ~engine));
     let authn = Option.map Current_github.Auth.make_login_uri github_auth in

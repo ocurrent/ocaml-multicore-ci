@@ -32,7 +32,7 @@ module Analysis = struct
   let of_dir ~switch ~job ~package_name ~platforms ~solver_dir ~opam_repository_commits d =
     let solver = Ocaml_multicore_ci.Backend_solver.local ~solver_dir () in
     Lwt_switch.add_hook (Some switch) (fun () ->
-        Ocaml_multicore_ci.Backend_solver.ci solver >>= fun solver ->
+        Ocaml_multicore_ci.Backend_solver.local_ci solver >>= fun solver ->
         Capnp_rpc_lwt.Capability.dec_ref solver;
         Lwt.return_unit
       );
