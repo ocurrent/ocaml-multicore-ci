@@ -4,7 +4,7 @@ let ( >>!= ) = Lwt_result.bind
 
 type t = [`Remote of Current_ocluster.Connection.t | `Local of Ocaml_multicore_ci_api.Solver.t Lwt.t]
 
-let pool = "solver-pool"
+let pool = "solver"
 
 let solve_to_custom req builder =
   let params =
@@ -56,4 +56,3 @@ let create ?solver_dir uri =
 let local_ci t : Ocaml_multicore_ci_api.Solver.t Lwt.t = match t with
   | `Local ci -> ci
   | `Remote _ -> Fmt.failwith "Not a local solver"
-
