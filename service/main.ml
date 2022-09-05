@@ -138,7 +138,7 @@ let solver_service =
   Arg.value @@
   Arg.opt Arg.(some Capnp_rpc_unix.sturdy_uri) None @@
   Arg.info
-    ~doc:"The solver.cap file for the sovler scheduler service"
+    ~doc:"The solver.cap file for the solver scheduler service"
     ~docv:"FILE"
     ["solver-service"]
 
