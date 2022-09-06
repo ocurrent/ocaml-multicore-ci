@@ -319,14 +319,18 @@ module Analysis = struct
     let ty = type_of_dir dir in
     find_opam_files ~job ~dir >>!= fun opam_files ->
     Analyse_ocamlformat.get_ocamlformat_source job ~opam_files ~root:dir >>!= fun ocamlformat_source ->
-    if is_compiler || opam_files = [] then Lwt_result.return (
-      dummy_analysis ~platforms ~opam_repository_commits ~package_name
-    )
+    if is_compiler || opam_files = [] then begin
+      Current.Job.start job ~pool ~level:Current.Level.Average >>= fun () ->
+      Lwt_result.return (
+        dummy_analysis ~platforms ~opam_repository_commits ~package_name)
+    end
     else if List.filter is_toplevel opam_files = [] then
       let dunepath = Filename.concat (Fpath.to_string dir) "dune" in
       if Sys.file_exists dunepath then
+        Current.Job.start job ~pool ~level:Current.Level.Average >>= fun () ->
         Lwt_result.return (dummy_analysis ~platforms ~opam_repository_commits ~package_name)
       else
+        Current.Job.start job ~pool ~level:Current.Level.Average >>= fun () ->
         Lwt_result.fail (`Msg "No top-level opam or dune files found!")
     else (
       begin
@@ -426,11 +430,11 @@ module Examine = struct
 
   let run solver job { Key.src; _ } { Value.opam_repository_commits; platforms; is_compiler; compiler_commit; sandmark_package } =
     let package_name = package_name_from_commit src in
-    Current.Job.start job ~pool ~level:Current.Level.Average >>= fun () ->
     Current_git.with_checkout ~job src @@ fun src ->
     match sandmark_package with
     | None -> Analysis.of_dir ~solver ~platforms ~opam_repository_commits ~job ~package_name ~is_compiler ?compiler_commit src
     | Some package_name ->
+      Current.Job.start job ~pool ~level:Current.Level.Average >>= fun () ->
       Analysis.of_dir_sandmark ~platforms ~opam_repository_commits ~job ~package_name ~is_compiler ?compiler_commit ()
 
   let pp f (k, v) = Fmt.pf f "Analyse %s %s" (Key.digest k) (Value.digest v)
