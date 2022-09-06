@@ -10,5 +10,5 @@ val solve :
   t ->
   Current.Job.t ->
   Ocaml_multicore_ci_api.Worker.Solve_request.t ->
-  log :Ocaml_multicore_ci_api.Raw.Builder.Log.t Capnp_rpc_lwt.Capability.t ->
+  log :Ocaml_multicore_ci_api.Raw.Solve.Builder.Log.t Capnp_rpc_lwt.Capability.t ->
   Ocaml_multicore_ci_api.Worker.Solve_response.t Lwt.t

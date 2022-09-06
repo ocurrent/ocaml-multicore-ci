@@ -1,5 +1,5 @@
 module Rpc = Current_rpc.Impl(Current)
-module Raw = Ocaml_multicore_ci_api.Raw
+module Raw = Ocaml_multicore_ci_api.Raw.Build
 
 module String_map = Map.Make(String)
 module Index = Ocaml_multicore_ci.Index

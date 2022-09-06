@@ -40,7 +40,7 @@ let read_file ~max_len path =
 
 (* A logging service that logs to [job]. *)
 let job_log job =
-  let module X = Ocaml_multicore_ci_api.Raw.Service.Log in
+  let module X = Ocaml_multicore_ci_api.Raw.Solve.Service.Log in
   X.local @@ object
     inherit X.service
 
@@ -77,6 +77,7 @@ let remove_dev_selections ~opam_files = function
     `Opam_build (remove_dev_selections_from_opam_build ~opam_files selections)
   | `Opam_monorepo _ as x -> x
   | `Not_opam _ as x -> x
+
 module Analysis = struct
   type t = {
     opam_files : string list;

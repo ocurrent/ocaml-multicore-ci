@@ -12,9 +12,9 @@ let solve_to_custom req builder =
     @@ Ocaml_multicore_ci_api.Worker.Solve_request.to_yojson req
   in
   let builder =
-    Ocaml_multicore_ci_api.Raw.Builder.Solver.Solve.Params.init_pointer builder
+    Ocaml_multicore_ci_api.Raw.Solve.Builder.Solver.Solve.Params.init_pointer builder
   in
-  Ocaml_multicore_ci_api.Raw.Builder.Solver.Solve.Params.request_set builder params
+  Ocaml_multicore_ci_api.Raw.Solve.Builder.Solver.Solve.Params.request_set builder params
 
 let remote_solve con job request =
   let action =
