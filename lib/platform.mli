@@ -25,6 +25,7 @@ val get :
   distro:string ->
   ocaml_version:Ocaml_version.t ->
   host_base:Current_docker.Raw.Image.t Current.t ->
+  opam_version:Opam_version.t ->
   Current_docker.Raw.Image.t Current.t ->
   t Current.t
 (** [get ~label ~builder ~variant ~host_base base] creates a [t] by getting the opam variables from [host_base]
@@ -36,5 +37,6 @@ val pull :
   builder:Builder.t ->
   distro:string ->
   ocaml_version:Ocaml_version.t ->
+  opam_version:Opam_version.t ->
   Current_docker.Raw.Image.t Current.t
 (** [pull ~schedule ~builder ~distro ~ocaml_version] pulls "ocaml/opam:{distro}-ocaml-{version}" on [schedule]. *)
