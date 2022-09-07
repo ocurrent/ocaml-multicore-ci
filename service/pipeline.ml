@@ -31,16 +31,17 @@ let gref_to_version gref =
 
 let platforms =
   let schedule = monthly in
-  let v { Conf.label; builder; pool; distro; ocaml_version; arch } =
-    let base = Platform.pull ~arch ~schedule ~builder ~distro ~ocaml_version in
+  let v { Conf.label; builder; pool; distro; ocaml_version; arch; opam_version} =
+    let base = Platform.pull ~arch ~schedule ~builder ~distro ~ocaml_version ~opam_version in
     let host_base =
       match arch with
       | `X86_64 -> base
-      | _ -> Platform.pull ~arch:`X86_64 ~schedule ~builder ~distro ~ocaml_version
+      | _ -> Platform.pull ~arch:`X86_64 ~schedule ~builder ~distro ~ocaml_version ~opam_version
     in
-    Platform.get ~arch ~label ~builder ~pool ~distro ~ocaml_version ~host_base base
+    Platform.get ~arch ~label ~builder ~pool ~distro ~ocaml_version ~host_base ~opam_version base
   in
-  Current.list_seq (List.map v Conf.platforms)
+  let v2_1 = Conf.platforms `V2_1 in
+  Current.list_seq (List.map v v2_1)
 
 let get_job_id x =
   let+ md = Current.Analysis.metadata x in

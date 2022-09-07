@@ -6,6 +6,6 @@
   (preprocess (pps ppx_deriving.std ppx_deriving_yojson)))
 
 (rule
- (targets schema.ml schema.mli ocurrent.ml ocurrent.mli)
- (deps schema.capnp ocurrent.capnp)
+ (targets solve.ml solve.mli build.ml build.mli ocurrent.ml ocurrent.mli)
+ (deps build.capnp solve.capnp ocurrent.capnp)
  (action (run capnp compile -o %{bin:capnpc-ocaml} %{deps})))

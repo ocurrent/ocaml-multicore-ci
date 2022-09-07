@@ -2,7 +2,7 @@ open Lwt.Infix
 open Capnp_rpc_lwt
 
 module Log = struct
-  module X = Raw.Client.Log
+  module X = Raw.Solve.Client.Log
   type t = X.t Capability.t
 
   let pp_timestamp f x =
@@ -27,7 +27,7 @@ module Log = struct
     Fmt.kstr k ("%a [INFO] @[" ^^ fmt ^^ "@]@.") pp_timestamp now
 end
 
-module X = Raw.Client.Solver
+module X = Raw.Solve.Client.Solver
 
 type t = X.t Capability.t
 

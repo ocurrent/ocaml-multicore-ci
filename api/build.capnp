@@ -88,11 +88,3 @@ interface CI {
   jobs         @2 () -> (jobs :List(JobInfo));
   # Get the list of active jobs.
 }
-
-interface Log {
-  write @0 (msg :Text);
-}
-
-interface Solver {
-  solve @0 (request :Text, log :Log) -> (response :Text);
-}

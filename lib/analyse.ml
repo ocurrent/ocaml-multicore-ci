@@ -40,7 +40,7 @@ let read_file ~max_len path =
 
 (* A logging service that logs to [job]. *)
 let job_log job =
-  let module X = Ocaml_multicore_ci_api.Raw.Service.Log in
+  let module X = Ocaml_multicore_ci_api.Raw.Solve.Service.Log in
   X.local @@ object
     inherit X.service
 
@@ -77,6 +77,7 @@ let remove_dev_selections ~opam_files = function
     `Opam_build (remove_dev_selections_from_opam_build ~opam_files selections)
   | `Opam_monorepo _ as x -> x
   | `Not_opam _ as x -> x
+
 module Analysis = struct
   type t = {
     opam_files : string list;
@@ -268,7 +269,7 @@ module Analysis = struct
       }
     in
     Capnp_rpc_lwt.Capability.with_ref (job_log job) @@ fun log ->
-    Ocaml_multicore_ci_api.Solver.solve solver request ~log >|= function
+    Backend_solver.solve solver job request ~log >|= function
     | Ok [] -> Fmt.error_msg "No solution found for any supported platform"
     | Ok x -> Ok (List.map Selection.of_worker x)
     | Error (`Msg msg) -> Fmt.error_msg "Error from solver: %s" msg
@@ -318,14 +319,18 @@ module Analysis = struct
     let ty = type_of_dir dir in
     find_opam_files ~job ~dir >>!= fun opam_files ->
     Analyse_ocamlformat.get_ocamlformat_source job ~opam_files ~root:dir >>!= fun ocamlformat_source ->
-    if is_compiler || opam_files = [] then Lwt_result.return (
-      dummy_analysis ~platforms ~opam_repository_commits ~package_name
-    )
+    if is_compiler || opam_files = [] then begin
+      Current.Job.start job ~pool ~level:Current.Level.Average >>= fun () ->
+      Lwt_result.return (
+        dummy_analysis ~platforms ~opam_repository_commits ~package_name)
+    end
     else if List.filter is_toplevel opam_files = [] then
       let dunepath = Filename.concat (Fpath.to_string dir) "dune" in
       if Sys.file_exists dunepath then
+        Current.Job.start job ~pool ~level:Current.Level.Average >>= fun () ->
         Lwt_result.return (dummy_analysis ~platforms ~opam_repository_commits ~package_name)
       else
+        Current.Job.start job ~pool ~level:Current.Level.Average >>= fun () ->
         Lwt_result.fail (`Msg "No top-level opam or dune files found!")
     else (
       begin
@@ -342,7 +347,7 @@ module Analysis = struct
       Lwt_result.return r
     )
 
-    let of_dir_sandmark ~job ~platforms ~opam_repository_commits ~package_name ?is_compiler ?compiler_commit () =
+  let of_dir_sandmark ~job ~platforms ~opam_repository_commits ~package_name ?is_compiler ?compiler_commit () =
       let is_compiler = Option.value is_compiler ~default:false in
       Current.Job.log job
       "Analysing %s: @[<v>platforms=@[%a@]@,opam_repository_commits=@[%a@]@,is_compiler=%a@,compiler_commit=%a@]"
@@ -364,7 +369,7 @@ let platforms_to_yojson platforms =
   `List (List.map platform_to_yojson platforms)
 
 module Examine = struct
-  type t = Ocaml_multicore_ci_api.Solver.t
+  type t = Backend_solver.t
 
   module Key = struct
     type t = {
@@ -425,11 +430,11 @@ module Examine = struct
 
   let run solver job { Key.src; _ } { Value.opam_repository_commits; platforms; is_compiler; compiler_commit; sandmark_package } =
     let package_name = package_name_from_commit src in
-    Current.Job.start job ~pool ~level:Current.Level.Harmless >>= fun () ->
     Current_git.with_checkout ~job src @@ fun src ->
     match sandmark_package with
     | None -> Analysis.of_dir ~solver ~platforms ~opam_repository_commits ~job ~package_name ~is_compiler ?compiler_commit src
     | Some package_name ->
+      Current.Job.start job ~pool ~level:Current.Level.Average >>= fun () ->
       Analysis.of_dir_sandmark ~platforms ~opam_repository_commits ~job ~package_name ~is_compiler ?compiler_commit ()
 
   let pp f (k, v) = Fmt.pf f "Analyse %s %s" (Key.digest k) (Value.digest v)
