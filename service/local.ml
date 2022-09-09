@@ -1,6 +1,6 @@
 (* Utility program for testing the CI pipeline on a local repository. *)
 
-let solver = Ocaml_multicore_ci.Backend_solver.local ()
+let solver = Ocaml_multicore_ci.Solver_pool.spawn_local ()
 
 let () =
   Unix.putenv "DOCKER_BUILDKIT" "1";

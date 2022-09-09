@@ -59,7 +59,6 @@ type platform = {
   distro : string;
   ocaml_version : OV.t;
   arch: OV.arch;
-  opam_version: Ocaml_multicore_ci.Opam_version.t
 }
 
 let pool_of_arch : OV.arch -> string = function
@@ -68,16 +67,9 @@ let pool_of_arch : OV.arch -> string = function
 | `Ppc64le -> "linux-ppc64"
 | `S390x -> assert false
 
-let platforms opam_version =
+let platforms =
   let v ?(arch=`X86_64) label distro ocaml_version =
-    { arch;
-      label;
-      builder = Builders.local;
-      pool = pool_of_arch arch;
-      distro;
-      ocaml_version;
-      opam_version;
-    }
+    { arch; label; builder = Builders.local; pool = pool_of_arch arch; distro; ocaml_version }
   in
   let master_distro = (DD.resolve_alias DD.master_distro :> DD.t) in
   let make_distro distro =

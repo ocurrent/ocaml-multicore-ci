@@ -1,7 +1,7 @@
 open Graphql_lwt
 module Client = Ocaml_multicore_ci_api.Client
 
-type build_status = Ocaml_multicore_ci_api.Raw.Build.Reader.BuildStatus.t
+type build_status = Ocaml_multicore_ci_api.Raw.Reader.BuildStatus.t
 
 type job_state =
   | NotStarted
@@ -130,7 +130,7 @@ let config = Schema.(obj "config" ~fields:([
     ~resolve:(fun _ p -> p.Config.admin_service_uri);
 ]))
 
-let build_status = Ocaml_multicore_ci_api.Raw.Build.Reader.BuildStatus.(Schema.(enum "build_status"
+let build_status = Ocaml_multicore_ci_api.Raw.Reader.BuildStatus.(Schema.(enum "build_status"
   ~values:[
     enum_value "NotStarted" ~value:NotStarted;
     enum_value "Passed" ~value:Passed;

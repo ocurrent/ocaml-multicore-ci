@@ -15,7 +15,7 @@ module Metrics = struct
 end
 
 type t = {
-  sr : Ocaml_multicore_ci_api.Raw.Build.Client.CI.t Sturdy_ref.t;
+  sr : Ocaml_multicore_ci_api.Raw.Client.CI.t Sturdy_ref.t;
   mutable ci : Ocaml_multicore_ci_api.Client.CI.t Lwt.t;
   mutable last_failed : float;
 }

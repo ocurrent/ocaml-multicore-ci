@@ -134,7 +134,7 @@ let v ~n_workers ~create_worker =
     Epoch.create ~n_workers ~create_worker commits
   in
   let t = Epoch_lock.v ~create ~dispose:Epoch.dispose () in
-  let module X = Ocaml_multicore_ci_api.Raw.Solve.Service.Solver in
+  let module X = Ocaml_multicore_ci_api.Raw.Service.Solver in
   Lwt.return @@ X.local @@ object
     inherit X.service
 
