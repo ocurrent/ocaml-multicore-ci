@@ -105,7 +105,8 @@ let main config mode app capnp_address github_auth submission_uri solver_uri : (
     in
     let secure_cookies = github_auth <> None in
     let routes =
-      Routes.(s "webhooks" / s "github" /? nil @--> Current_github.webhook ~engine ~webhook_secret ~has_role) ::
+      Routes.(s "webhooks" / s "github" /? nil @-->
+                Current_github.webhook ~engine ~get_job_ids:Ocaml_multicore_ci.Index.get_job_ids ~webhook_secret) ::
       Routes.(s "login" /? nil @--> Current_github.Auth.login github_auth) ::
       Current_web.routes engine in
     let site = Current_web.Site.v ?authn ~has_role ~secure_cookies ~name:"ocaml-multicore-ci" routes in
