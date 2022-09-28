@@ -12,6 +12,23 @@ let target =
   | Some "mainline" | None -> `Mainline
   | Some x -> Fmt.failwith "Unknown $CI_TARGET setting %S" x
 
+let cmdliner_envs =
+  let ci_profile =
+    let doc = Printf.sprintf
+                "CI profile settings, must be %s. Defaults to $(b,dev) which \
+                 tests just a few OCaml versions, whilst $(b,production) tests \
+                 the whole matrix."
+                (Cmdliner.Arg.doc_alts [ "dev"; "production" ]) in
+    Cmdliner.Cmd.Env.info "CI_PROFILE" ~doc in
+  let ci_target =
+    let doc = Printf.sprintf
+                "CI target settings, must be %s. Defaults to $(b,mainline) which \
+                 tests using ocaml/opam-repository, whilst $(b,multicore) uses \
+                 other patched opam-repositories for multicore compatibility."
+                (Cmdliner.Arg.doc_alts [ "mainline"; "multicore" ]) in
+    Cmdliner.Cmd.Env.info "CI_TARGET" ~doc in
+  [ ci_profile; ci_target ]
+
 (* GitHub defines a stale branch as more than 3 months old.
    Don't bother testing these. *)
 let max_staleness = Duration.of_day 93

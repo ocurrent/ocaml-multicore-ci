@@ -161,7 +161,7 @@ let cmd ~with_github =
       const main $ Current.Config.cmdliner $ Current_web.cmdliner $
       gh_cmd $
       capnp_address $ Current_github.Auth.cmdliner $ submission_service $ solver_service)) in
-  let info = Cmd.info "ocaml-multicore-ci" ~doc in
+  let info = Cmd.info "ocaml-multicore-ci" ~doc ~envs:Conf.cmdliner_envs in
   Cmd.v info term
 
 let () =
