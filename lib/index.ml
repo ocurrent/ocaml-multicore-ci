@@ -12,6 +12,7 @@ type t = {
   get_all_jobs : Sqlite3.stmt;
   get_jobs : Sqlite3.stmt;
   get_job : Sqlite3.stmt;
+  get_job_ids : Sqlite3.stmt;
   full_hash : Sqlite3.stmt;
 }
 
@@ -54,6 +55,9 @@ CREATE TABLE IF NOT EXISTS ci_build_index (
                                      LEFT JOIN cache ON ci_build_index.job_id = cache.job_id" in
   let get_job = Sqlite3.prepare db "SELECT job_id FROM ci_build_index \
                                      WHERE owner = ? AND name = ? AND hash = ? AND variant = ?" in
+  let get_job_ids = Sqlite3.prepare db
+                      "SELECT variant, job_id FROM ci_build_index WHERE owner = ? AND name \
+                       = ? AND hash = ?" in
   let full_hash = Sqlite3.prepare db "SELECT DISTINCT hash FROM ci_build_index \
                                       WHERE owner = ? AND name = ? AND hash LIKE ?" in
       {
@@ -63,6 +67,7 @@ CREATE TABLE IF NOT EXISTS ci_build_index (
         get_jobs;
         get_all_jobs;
         get_job;
+        get_job_ids;
         full_hash
       }
 )
@@ -158,6 +163,17 @@ let get_job ~owner ~name ~hash ~variant =
   | Some Sqlite3.Data.[ TEXT id ] -> Ok (Some id)
   | Some Sqlite3.Data.[ NULL ] -> Ok None
   | _ -> failwith "get_job: invalid result!"
+
+let get_job_ids_with_variant t ~owner ~name ~hash =
+  Db.query t.get_job_ids Sqlite3.Data.[ TEXT owner; TEXT name; TEXT hash ]
+  |> List.map @@ function
+  | Sqlite3.Data.[ TEXT variant; NULL ] -> (variant, None)
+  | Sqlite3.Data.[ TEXT variant; TEXT id ] -> (variant, Some id)
+  | row -> Fmt.failwith "get_job_ids: invalid row %a" Db.dump_row row
+
+let get_job_ids ~owner ~name ~hash =
+  let t = Lazy.force db in
+  get_job_ids_with_variant t ~owner ~name ~hash |> List.filter_map snd
 
 module Owner_set = Set.Make(String)
 

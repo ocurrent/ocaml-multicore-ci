@@ -46,7 +46,7 @@ module Builders = struct
 end
 
 module OV = Ocaml_version
-module DD = Dockerfile_distro
+module DD = Dockerfile_opam.Distro
 module Github = Current_github
 
 let default_compiler = OV.(Releases.latest |> without_patch)
@@ -66,7 +66,7 @@ let pool_of_arch : OV.arch -> string = function
 | `X86_64 | `I386 -> "linux-x86_64"
 | `Aarch32 | `Aarch64 -> "linux-arm64"
 | `Ppc64le -> "linux-ppc64"
-| `S390x -> assert false
+| `S390x | `Riscv64 -> assert false
 
 let platforms opam_version =
   let v ?(arch=`X86_64) label distro ocaml_version =

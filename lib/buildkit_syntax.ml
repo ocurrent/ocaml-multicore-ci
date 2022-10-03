@@ -9,5 +9,5 @@ let add arch =
     | `X86_64 | `I386 -> `X86_64
     | `Aarch64 | `Aarch32 -> `Aarch64
     | `Ppc64le -> `Ppc64le
-    | `S390x -> assert false) in
+    | `S390x | `Riscv64 -> assert false) in
   Printf.sprintf "# syntax = docker/dockerfile:experimental@%s\n" hash
