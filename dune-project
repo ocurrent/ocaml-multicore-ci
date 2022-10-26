@@ -73,7 +73,7 @@
   (logs (>= 0.7.0))
   (fmt (>= 0.8.9))
   current_rpc
-  current_ansi
+  ansi
   (prometheus-app (>= 1.0))
   (cmdliner (>= 1.1.0))
   lwt
