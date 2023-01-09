@@ -430,11 +430,11 @@ module Examine = struct
 
   let run solver job { Key.src; _ } { Value.opam_repository_commits; platforms; is_compiler; compiler_commit; sandmark_package } =
     let package_name = package_name_from_commit src in
+    Current.Job.start job ~pool ~level:Current.Level.Average >>= fun () ->
     Current_git.with_checkout ~job src @@ fun src ->
     match sandmark_package with
     | None -> Analysis.of_dir ~solver ~platforms ~opam_repository_commits ~job ~package_name ~is_compiler ?compiler_commit src
     | Some package_name ->
-      Current.Job.start job ~pool ~level:Current.Level.Average >>= fun () ->
       Analysis.of_dir_sandmark ~platforms ~opam_repository_commits ~job ~package_name ~is_compiler ?compiler_commit ()
 
   let pp f (k, v) = Fmt.pf f "Analyse %s %s" (Key.digest k) (Value.digest v)

@@ -23,8 +23,8 @@ depends: [
   "current_rpc"
   "current_ocluster"
   "capnp-rpc-unix" {>= "1.2"}
-  "ocaml-multicore-ci-api"
-  "ocaml-multicore-ci-solver"
+  "solver-service-api"
+  "solver-service"
   "ocluster-api"
   "obuilder-spec"
   "conf-libev"

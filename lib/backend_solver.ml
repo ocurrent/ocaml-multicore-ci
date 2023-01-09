@@ -6,6 +6,9 @@ type t = [`Remote of Current_ocluster.Connection.t | `Local of Ocaml_multicore_c
 
 let pool = "solver"
 
+let switch = Current.Switch.create ~label:"solver-remote" ()
+let config = Current.Config.v ()
+
 let solve_to_custom req builder =
   let params =
     Yojson.Safe.to_string
@@ -25,13 +28,14 @@ let remote_solve con job request =
   let build_pool =
     Current_ocluster.Connection.pool ~job ~pool ~action ~cache_hint:"" con
   in
-  Current.Job.start_with ~pool:build_pool job ~level:Current.Level.Average
+  let dummy_job = Current.Job.create ~label:"solver-job" ~switch ~config () in
+  Current.Job.start_with ~pool:build_pool dummy_job ~level:Current.Level.Average
   >>= fun build_job ->
   Capnp_rpc_lwt.Capability.with_ref build_job
     (Current_ocluster.Connection.run_job ~job)
 
 let local ?solver_dir () : t =
-  `Local (Lwt.return (Solver_pool.spawn_local ?solver_dir ()))
+  `Local (Lwt.return (Solver_worker.spawn_local ?solver_dir ~internal_workers:20 ()))
 
 let solve t job request ~log = match t with
   | `Local ci ->

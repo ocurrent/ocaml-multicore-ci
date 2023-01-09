@@ -14,6 +14,7 @@
     ppx_deriving_yojson.runtime
     ocaml-version
     opam-0install
+    solver-worker
     current_ocluster
     ocluster-api
     obuilder-spec))

@@ -6,5 +6,5 @@
 (rule
   (alias runtest)
   (package ocaml-multicore-ci-service)
-  (deps (package ocaml-multicore-ci-solver))
+  (deps (package solver-service))
   (action (run ./test.exe)))

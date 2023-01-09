@@ -8,7 +8,7 @@ type t = {
 
 let of_worker w =
   let module W = Ocaml_multicore_ci_api.Worker.Selection in
-  let { W.id; packages; commits } = w in
+  let { W.id; packages; commits; _ } = w in
   let variant = Variant.of_string id in
   let commits = commits in
   { variant; packages; commits; command=None }

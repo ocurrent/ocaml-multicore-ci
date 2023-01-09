@@ -35,8 +35,8 @@
   current_rpc
   current_ocluster
   (capnp-rpc-unix (>= 1.2))
-  ocaml-multicore-ci-api
-  ocaml-multicore-ci-solver
+  solver-service-api
+  solver-service
   ocluster-api
   obuilder-spec
   conf-libev
@@ -44,25 +44,6 @@
   (ocaml-version (>= 3.0.0))
   (alcotest (and (>= 1.0.0) :with-test))
   (alcotest-lwt (and (>= 1.0.1) :with-test))))
-(package
- (name ocaml-multicore-ci-solver)
- (synopsis "Choose package versions to test")
- (depends
-  (ppx_deriving_yojson (>= 3.6.1))
-  (ppx_deriving (>= 5.1))
-  yojson
-  lwt
-  lwt_ppx
-  logs
-  fmt
-  ocaml-multicore-ci-api
-  conf-libev
-  (opam-0install (>= "0.2"))
-  (git-unix (>= 3.8.0))
-  (capnp-rpc-unix (>= 1.2)))
- (conflicts
-  (carton (< 0.4.2))) ; workaround for mirage/ocaml-git#514
-)
 (package
  (name ocaml-multicore-ci-web)
  (synopsis "Web-server frontend for ocaml-multicore-ci")
