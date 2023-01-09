@@ -108,7 +108,7 @@ module Op = struct
     in
     let make_dockerfile ~for_user =
       (if for_user then "" else Buildkit_syntax.add (Variant.arch variant)) ^
-      Obuilder_spec.Docker.dockerfile_of_spec ~buildkit:(not for_user) build_spec
+      Obuilder_spec.Docker.dockerfile_of_spec ~os:`Unix ~buildkit:(not for_user) build_spec
     in
     Current.Job.write job
       (Fmt.str "@[<v>Base: %a@,%a@]@."

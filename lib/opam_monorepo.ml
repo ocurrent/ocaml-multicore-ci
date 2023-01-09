@@ -145,7 +145,7 @@ let spec ~base ~repo ~config ~variant =
   let dune_project = "dune-project" in
   let open Obuilder_spec in
   stage ~from:base
-  @@ [ comment "%s" (Variant.to_string variant); user ~uid:1000 ~gid:1000 ]
+  @@ [ comment "%s" (Variant.to_string variant); user_unix ~uid:1000 ~gid:1000 ]
   @ Opam_build.install_project_deps ~opam_files:[] ~selection
   @ [
       workdir "/src";

@@ -20,7 +20,7 @@ let fmt_spec ~base ~ocamlformat_source =
   let cache = Opam_build.opam_download_cache in
   let network = ["host"] in
   stage ~from:base @@ [
-    user ~uid:1000 ~gid:1000;
+    user_unix ~uid:1000 ~gid:1000;
     run ~network ~cache "opam depext -i dune";  (* Necessary in case current compiler < 4.08 *)
                                                 (* Not necessarily the dune version used by the project *)
     workdir "/src";
@@ -37,7 +37,7 @@ let doc_spec ~base ~opam_files ~selection =
   let open Obuilder_spec in
   stage ~from:base @@
     comment "%s" (Fmt.str "%a" Variant.pp selection.Selection.variant) ::
-    user ~uid:1000 ~gid:1000 ::
+    user_unix ~uid:1000 ~gid:1000 ::
     Opam_build.install_project_deps ~opam_files ~selection @ [
       (* Warnings-as-errors was introduced in Odoc.1.5.0 *)
       (* conf-m4 is a work-around for https://github.com/ocaml-opam/opam-depext/pull/132 *)
@@ -50,7 +50,7 @@ let doc_spec ~base ~opam_files ~selection =
 let install_opam_dune_lint ~cache ~network ~base =
   let open Obuilder_spec in
   stage ~from:base [
-    user ~uid:1000 ~gid:1000;
+    user_unix ~uid:1000 ~gid:1000;
     run ~cache ~network "git -C ~/opam-repository pull origin master && opam update && opam pin add -yn opam-dune-lint.dev https://github.com/ocurrent/opam-dune-lint.git#790f4d552d37cfeb6c13c5d1d543ef7da576ad1d";
     run ~cache ~network "opam depext -i opam-dune-lint";
     run "sudo cp $(opam exec -- which opam-dune-lint) /usr/local/bin/";
@@ -64,7 +64,7 @@ let opam_lint_spec ~base ~opam_files ~selection =
     ~child_builds:["opam-dune-lint", install_opam_dune_lint ~cache ~network ~base]
     ~from:base @@
     comment "%s" (Fmt.str "%a" Variant.pp selection.Selection.variant) ::
-    user ~uid:1000 ~gid:1000 ::
+    user_unix ~uid:1000 ~gid:1000 ::
     Opam_build.install_project_deps ~opam_files ~selection @ [
       workdir "/src";
       copy ["."] ~dst:"/src/";
