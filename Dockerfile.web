@@ -1,9 +1,9 @@
-FROM ocaml/opam:debian-11-ocaml-4.14@sha256:00f4d3f38bbde3a7a28b1b4b8994eded60fb5ee78822082f425662b7f9463178 AS build
+FROM ocaml/opam:debian-11-ocaml-4.14@sha256:e4ce65485aed7b09b605f39643b46b86b913b54f5304e0dc125d815d18805887 AS build
 RUN curl -sL https://deb.nodesource.com/setup_14.x | sudo bash -
 RUN curl -sL https://dl.yarnpkg.com/debian/pubkey.gpg | sudo apt-key add -
 RUN echo "deb https://dl.yarnpkg.com/debian/ stable main" | sudo tee /etc/apt/sources.list.d/yarn.list
 RUN sudo apt-get update && sudo apt-get install libev-dev capnproto m4 pkg-config libgmp-dev nodejs yarn -y --no-install-recommends
-RUN cd ~/opam-repository && git fetch -q origin master && git reset --hard d079370f3d78e090f895b3270d17398d88ed83d4 && opam update
+RUN cd ~/opam-repository && git fetch -q origin master && git reset --hard 4d71c85721434d76da9b416c2f1a082c22d45769 && opam update
 COPY --chown=opam \
 	ocurrent/current_rpc.opam \
 	/src/ocurrent/

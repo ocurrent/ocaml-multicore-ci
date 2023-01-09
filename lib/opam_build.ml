@@ -159,10 +159,10 @@ let clone_target_repo repo =
   let (repo_url, repo_gref) = Repo_url_utils.url_gref_from_url repo in
   [
     comment "Clone source repo %s to /testsrc/src" repo;
-    user ~uid:0 ~gid:0;
+    user_unix ~uid:0 ~gid:0;
     run "mkdir /testsrc";
     run "chown 1000:1000 /testsrc";
-    user ~uid:1000 ~gid:1000;
+    user_unix ~uid:1000 ~gid:1000;
     run "git clone %s /testsrc/src && git -C /testsrc/src -c advice.detachedHead=false checkout %s" repo_url repo_gref
   ]
 
@@ -172,7 +172,7 @@ let print_compiler_version =
 let spec_helper ~body ~repo ~base ~opam_files ~compiler_commit ~selection =
   stage ~from:base ([
     comment "Variant: %s" (Fmt.str "%a" Variant.pp selection.Selection.variant);
-    user ~uid:1000 ~gid:1000;
+    user_unix ~uid:1000 ~gid:1000;
   ] @
     install_os_deps selection @
     update_opam_repository selection @
