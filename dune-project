@@ -1,10 +1,12 @@
-(lang dune 2.0)
+(lang dune 3.6)
 (name ocaml-multicore-ci-api)
+
 (formatting disabled)
 (generate_opam_files true)
 (source (github ocurrent/ocaml-multicore-ci))
 (authors "talex5@gmail.com")
 (maintainers "talex5@gmail.com")
+
 (package
  (name ocaml-multicore-ci-api)
  (synopsis "Cap'n Proto API for ocaml-multicore-ci")
@@ -14,6 +16,7 @@
   (capnp-rpc-lwt (>= 1.2))
   ppx_deriving
   ppx_deriving_yojson))
+
 (package
  (name ocaml-multicore-ci-service)
  (synopsis "Test OCaml projects on GitHub")
@@ -44,6 +47,7 @@
   (ocaml-version (>= 3.0.0))
   (alcotest (and (>= 1.0.0) :with-test))
   (alcotest-lwt (and (>= 1.0.1) :with-test))))
+
 (package
  (name ocaml-multicore-ci-web)
  (synopsis "Web-server frontend for ocaml-multicore-ci")
@@ -68,6 +72,7 @@
   (graphql-lwt (>= 0.14.0))
   conf-libev
   ppx_deriving_yojson))
+
 (package
  (name ocaml-multicore-ci-client)
  (synopsis "Command-line client for ocaml-multicore-ci")
