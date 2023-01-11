@@ -5,48 +5,36 @@ module Docker = Current_docker.Default
 
 let daily = Current_cache.Schedule.v ~valid_for:(Duration.of_day 1) ()
 let monthly = Current_cache.Schedule.v ~valid_for:(Duration.of_day 30) ()
-
-let commit_to_yojson commit =
-  `String (Git.Commit.hash commit)
-
-let commit_id_to_yojson commit =
-  `String (Git.Commit_id.digest commit)
-
-let commit_ids_to_yojson commits =
-  `List (List.map commit_id_to_yojson commits)
+let commit_to_yojson commit = `String (Git.Commit.hash commit)
+let commit_id_to_yojson commit = `String (Git.Commit_id.digest commit)
+let commit_ids_to_yojson commits = `List (List.map commit_id_to_yojson commits)
 
 let github_status_of_state ~head ~make_url result =
-  let+ head = head
-  and+ result = result in
+  let+ head = head and+ result = result in
   let { Github.Repo_id.owner; name } = Github.Api.Commit.repo_id head in
   let hash = Github.Api.Commit.hash head in
   let url = make_url ~owner ~name ~hash in
   match result with
-  | Ok _              -> Github.Api.Status.v ~url `Success ~description:"Passed"
+  | Ok _ -> Github.Api.Status.v ~url `Success ~description:"Passed"
   | Error (`Active _) -> Github.Api.Status.v ~url `Pending
-  | Error (`Msg m)    -> Github.Api.Status.v ~url `Failure ~description:m
+  | Error (`Msg m) -> Github.Api.Status.v ~url `Failure ~description:m
 
-let index_owners owners =
-  owners |> List.to_seq |> Index.Owner_set.of_seq
+let index_owners owners = owners |> List.to_seq |> Index.Owner_set.of_seq
 
 let get_owners installations =
   installations |> List.map Github.Installation.account
 
-let set_active_owners owners =
-  owners |> index_owners |> Index.set_active_owners
+let set_active_owners owners = owners |> index_owners |> Index.set_active_owners
 
 let set_active_installations installations =
   let+ installations = installations in
   installations |> get_owners |> set_active_owners;
   installations
 
-let index_repo_names repos =
-  repos |> List.to_seq |> Index.Repo_set.of_seq
+let index_repo_names repos = repos |> List.to_seq |> Index.Repo_set.of_seq
 
 let index_repos repos =
-  repos |>
-    List.map (fun r -> (Github.Api.Repo.id r).name) |>
-    index_repo_names
+  repos |> List.map (fun r -> (Github.Api.Repo.id r).name) |> index_repo_names
 
 let gref_hash_of_commit_id commit_id =
   let gref = Git.Commit_id.gref commit_id in
@@ -62,117 +50,122 @@ let index_gref_hashes gref_hashes =
   gref_hashes |> List.to_seq |> Index.Ref_map.of_seq
 
 let set_active_repos_by_owner ~owner repos =
-  repos |>
-    index_repos |>
-    Index.set_active_repos ~owner
+  repos |> index_repos |> Index.set_active_repos ~owner
 
 let set_active_repo_names ~owner repo_names =
-  repo_names |>
-    index_repo_names |>
-    Index.set_active_repos ~owner
+  repo_names |> index_repo_names |> Index.set_active_repos ~owner
 
 let set_active_repos ~installation repos =
-  let+ installation = installation
-  and+ repos = repos in
+  let+ installation = installation and+ repos = repos in
   let owner = Github.Installation.account installation in
   set_active_repos_by_owner ~owner repos;
   repos
 
 let set_active_refs ~repo commits =
-  let+ repo = repo
-  and+ commits = commits in
+  let+ repo = repo and+ commits = commits in
   let repo = Github.Api.Repo.id repo in
-  commits |>
-    List.map gref_hash_of_commit |>
-    index_gref_hashes |>
-    Index.set_active_refs ~repo;
+  commits
+  |> List.map gref_hash_of_commit
+  |> index_gref_hashes
+  |> Index.set_active_refs ~repo;
   commits
 
 let set_active_refs_by_id ~repo_id commits =
-  commits |>
-    List.map gref_hash_of_commit_id |>
-    index_gref_hashes |>
-    Index.set_active_refs ~repo:repo_id
+  commits
+  |> List.map gref_hash_of_commit_id
+  |> index_gref_hashes
+  |> Index.set_active_refs ~repo:repo_id
 
 let list_errors ~ok errs =
-  let groups =  (* Group by error message *)
-    List.sort compare errs |> List.fold_left (fun acc (msg, l) ->
-        match acc with
-        | (m2, ls) :: acc' when m2 = msg -> (m2, l :: ls) :: acc'
-        | _ -> (msg, [l]) :: acc
-      ) []
+  let groups =
+    (* Group by error message *)
+    List.sort compare errs
+    |> List.fold_left
+         (fun acc (msg, l) ->
+           match acc with
+           | (m2, ls) :: acc' when m2 = msg -> (m2, l :: ls) :: acc'
+           | _ -> (msg, [ l ]) :: acc)
+         []
   in
-  Error (`Msg (
-      match groups with
+  Error
+    (`Msg
+      (match groups with
       | [] -> "No builds at all!"
-      | [ msg, _ ] when ok = 0 -> msg (* Everything failed with the same error *)
-      | [ msg, ls ] -> Fmt.str "%a failed: %s" Fmt.(list ~sep:(any ", ") string) ls msg
+      | [ (msg, _) ] when ok = 0 ->
+          msg (* Everything failed with the same error *)
+      | [ (msg, ls) ] ->
+          Fmt.str "%a failed: %s" Fmt.(list ~sep:(any ", ") string) ls msg
       | _ ->
-        (* Multiple error messages; just list everything that failed. *)
-        let pp_label f (_, l) = Fmt.string f l in
-        Fmt.str "%a failed" Fmt.(list ~sep:(any ", ") pp_label) errs
-    ))
+          (* Multiple error messages; just list everything that failed. *)
+          let pp_label f (_, l) = Fmt.string f l in
+          Fmt.str "%a failed" Fmt.(list ~sep:(any ", ") pp_label) errs))
 
 let combine_variant_compiler variant = function
-| None -> variant
-| Some compiler ->
-  try
-    let version = Ocaml_version.of_string_exn compiler in
-    let minor_version = Ocaml_version.with_just_major_and_minor version in
-    let version_str = Fmt.str "-%s" (Ocaml_version.to_string minor_version) in
-    let variant_str =
-      if Astring.String.is_suffix ~affix:version_str variant then
-        String.sub variant 0 (String.length variant - String.length version_str)
-      else
-        variant
-    in
-    Fmt.str "%s on %s" compiler variant_str
-  with _ ->
-    Fmt.str "%s on %s" compiler variant
+  | None -> variant
+  | Some compiler -> (
+      try
+        let version = Ocaml_version.of_string_exn compiler in
+        let minor_version = Ocaml_version.with_just_major_and_minor version in
+        let version_str =
+          Fmt.str "-%s" (Ocaml_version.to_string minor_version)
+        in
+        let variant_str =
+          if Astring.String.is_suffix ~affix:version_str variant then
+            String.sub variant 0
+              (String.length variant - String.length version_str)
+          else variant
+        in
+        Fmt.str "%s on %s" compiler variant_str
+      with _ -> Fmt.str "%s on %s" compiler variant)
 
 let summarise results =
-  results |> List.fold_left (fun (ok, pending, err, skip) -> function
-      | _, Ok `Checked -> (ok, pending, err, skip)  (* Don't count lint checks *)
-      | _, Ok `Built -> (ok + 1, pending, err, skip)
-      | l, Error `Msg m when Astring.String.is_prefix ~affix:"[SKIP]" m -> (ok, pending, err, (m, l) :: skip)
-      | l, Error `Msg m -> (ok, pending, (m, l) :: err, skip)
-      | _, Error `Active _ -> (ok, pending + 1, err, skip)
-    ) (0, 0, [], [])
+  results
+  |> List.fold_left
+       (fun (ok, pending, err, skip) -> function
+         | _, Ok `Checked ->
+             (ok, pending, err, skip) (* Don't count lint checks *)
+         | _, Ok `Built -> (ok + 1, pending, err, skip)
+         | l, Error (`Msg m) when Astring.String.is_prefix ~affix:"[SKIP]" m ->
+             (ok, pending, err, (m, l) :: skip)
+         | l, Error (`Msg m) -> (ok, pending, (m, l) :: err, skip)
+         | _, Error (`Active _) -> (ok, pending + 1, err, skip))
+       (0, 0, [], [])
   |> fun (ok, pending, err, skip) ->
   if pending > 0 then Error (`Active `Running)
-  else match ok, err, skip with
-    | 0, [], skip -> list_errors ~ok:0 skip (* Everything was skipped - treat skips as errors *)
-    | _, [], _ -> Ok ()                     (* No errors and at least one success *)
-    | ok, err, _ -> list_errors ~ok err     (* Some errors found - report *)
+  else
+    match (ok, err, skip) with
+    | 0, [], skip ->
+        list_errors ~ok:0
+          skip (* Everything was skipped - treat skips as errors *)
+    | _, [], _ -> Ok () (* No errors and at least one success *)
+    | ok, err, _ -> list_errors ~ok err (* Some errors found - report *)
 
 let remap_build (variant, compiler, (build, _job)) =
   (combine_variant_compiler variant compiler, build)
 
-let summarise_builds builds =
-  builds
-  |> List.map remap_build
-  |> summarise
+let summarise_builds builds = builds |> List.map remap_build |> summarise
 
 let summarise_builds_current builds =
-  builds
-  |> Current.map (List.map remap_build)
-  |> Current.map summarise
+  builds |> Current.map (List.map remap_build) |> Current.map summarise
 
 let status_of_summary = function
-| Ok () -> `Passed
-| Error (`Active `Running) -> `Pending
-| Error (`Msg _) -> `Failed
+  | Ok () -> `Passed
+  | Error (`Active `Running) -> `Pending
+  | Error (`Msg _) -> `Failed
 
-module Owner_map = Map.Make(String)
+module Owner_map = Map.Make (String)
 
 let index_by_owner repo_urls =
-  repo_urls |>
-    List.fold_left (fun acc repo_url ->
-      let (owner, name) = Repo_url_utils.owner_name_from_url repo_url in
-      Owner_map.update owner (function
-      | None -> Some [(name, repo_url)]
-      | Some l -> Some ((name, repo_url) :: l)) acc
-    ) Owner_map.empty
+  repo_urls
+  |> List.fold_left
+       (fun acc repo_url ->
+         let owner, name = Repo_url_utils.owner_name_from_url repo_url in
+         Owner_map.update owner
+           (function
+             | None -> Some [ (name, repo_url) ]
+             | Some l -> Some ((name, repo_url) :: l))
+           acc)
+       Owner_map.empty
 
 let set_github_status ~head ~make_url ~pipeline_name summary =
   summary
@@ -180,13 +173,14 @@ let set_github_status ~head ~make_url ~pipeline_name summary =
   |> Github.Api.Commit.set_status head pipeline_name
 
 let record_builds ~repo_url ~hash ~builds ~summary =
-  let (owner, name) = Repo_url_utils.owner_name_from_url repo_url in
+  let owner, name = Repo_url_utils.owner_name_from_url repo_url in
   let status =
     let+ summary = summary in
     status_of_summary summary
   in
-  let+ builds = builds
-  and+ hash = hash
-  and+ status = status in
-  builds |> List.map (fun (variant, compiler, (_, job_id)) ->
-     Index.record ~owner ~name ~hash ~status ~variant:(combine_variant_compiler variant compiler) job_id)
+  let+ builds = builds and+ hash = hash and+ status = status in
+  builds
+  |> List.map (fun (variant, compiler, (_, job_id)) ->
+         Index.record ~owner ~name ~hash ~status
+           ~variant:(combine_variant_compiler variant compiler)
+           job_id)

@@ -14,19 +14,25 @@ let target =
 
 let cmdliner_envs =
   let ci_profile =
-    let doc = Printf.sprintf
-                "CI profile settings, must be %s. Defaults to $(b,dev) which \
-                 tests just a few OCaml versions, whilst $(b,production) tests \
-                 the whole matrix."
-                (Cmdliner.Arg.doc_alts [ "dev"; "production" ]) in
-    Cmdliner.Cmd.Env.info "CI_PROFILE" ~doc in
+    let doc =
+      Printf.sprintf
+        "CI profile settings, must be %s. Defaults to $(b,dev) which tests \
+         just a few OCaml versions, whilst $(b,production) tests the whole \
+         matrix."
+        (Cmdliner.Arg.doc_alts [ "dev"; "production" ])
+    in
+    Cmdliner.Cmd.Env.info "CI_PROFILE" ~doc
+  in
   let ci_target =
-    let doc = Printf.sprintf
-                "CI target settings, must be %s. Defaults to $(b,mainline) which \
-                 tests using ocaml/opam-repository, whilst $(b,multicore) uses \
-                 other patched opam-repositories for multicore compatibility."
-                (Cmdliner.Arg.doc_alts [ "mainline"; "multicore" ]) in
-    Cmdliner.Cmd.Env.info "CI_TARGET" ~doc in
+    let doc =
+      Printf.sprintf
+        "CI target settings, must be %s. Defaults to $(b,mainline) which tests \
+         using ocaml/opam-repository, whilst $(b,multicore) uses other patched \
+         opam-repositories for multicore compatibility."
+        (Cmdliner.Arg.doc_alts [ "mainline"; "multicore" ])
+    in
+    Cmdliner.Cmd.Env.info "CI_TARGET" ~doc
+  in
   [ ci_profile; ci_target ]
 
 (* GitHub defines a stale branch as more than 3 months old.
@@ -55,11 +61,17 @@ let build_timeout = Duration.of_hour 7
 module Builders = struct
   let v docker_context =
     let docker_context, pool =
-      Some docker_context, Current.Pool.create ~label:("docker-" ^ docker_context) 20
+      ( Some docker_context,
+        Current.Pool.create ~label:("docker-" ^ docker_context) 20 )
     in
     { Ocaml_multicore_ci.Builder.docker_context; pool; build_timeout }
 
-  let local = { Ocaml_multicore_ci.Builder.docker_context = None; pool = dev_pool; build_timeout }
+  let local =
+    {
+      Ocaml_multicore_ci.Builder.docker_context = None;
+      pool = dev_pool;
+      build_timeout;
+    }
 end
 
 module OV = Ocaml_version
@@ -75,19 +87,20 @@ type platform = {
   pool : string;
   distro : string;
   ocaml_version : OV.t;
-  arch: OV.arch;
-  opam_version: Ocaml_multicore_ci.Opam_version.t
+  arch : OV.arch;
+  opam_version : Ocaml_multicore_ci.Opam_version.t;
 }
 
 let pool_of_arch : OV.arch -> string = function
-| `X86_64 | `I386 -> "linux-x86_64"
-| `Aarch32 | `Aarch64 -> "linux-arm64"
-| `Ppc64le -> "linux-ppc64"
-| `S390x | `Riscv64 -> assert false
+  | `X86_64 | `I386 -> "linux-x86_64"
+  | `Aarch32 | `Aarch64 -> "linux-arm64"
+  | `Ppc64le -> "linux-ppc64"
+  | `S390x | `Riscv64 -> assert false
 
 let platforms opam_version =
-  let v ?(arch=`X86_64) label distro ocaml_version =
-    { arch;
+  let v ?(arch = `X86_64) label distro ocaml_version =
+    {
+      arch;
       label;
       builder = Builders.local;
       pool = pool_of_arch arch;
@@ -103,11 +116,10 @@ let platforms opam_version =
     let tag = DD.tag_of_distro distro in
     let ov = OV.(Releases.latest |> with_just_major_and_minor) in
     if distro = master_distro then
-      let arches = DD.distro_arches ov distro |> List.filter ((<>) `S390x) in
-      v label tag (OV.with_variant ov (Some "flambda")) ::
-      List.map (fun arch -> v ~arch label tag ov) arches
-    else
-      [v label tag ov]
+      let arches = DD.distro_arches ov distro |> List.filter (( <> ) `S390x) in
+      v label tag (OV.with_variant ov (Some "flambda"))
+      :: List.map (fun arch -> v ~arch label tag ov) arches
+    else [ v label tag ov ]
   in
   let make_release ?arch ov =
     let distro = DD.tag_of_distro master_distro in
@@ -115,113 +127,173 @@ let platforms opam_version =
     v ?arch (OV.to_string ov) distro ov
   in
   match target with
-  | `Mainline -> begin
-    match profile with
-    | `Production ->
-        let distros =
-          DD.active_tier1_distros `X86_64 @ DD.active_tier2_distros `X86_64 |>
-          List.map make_distro |> List.flatten in
-        (* The first one in this list is used for lint actions *)
-        let ovs = List.rev OV.Releases.recent @ OV.Releases.unreleased_betas in
-        List.map make_release ovs @ distros
-    | `Dev ->
-        let ovs = List.map OV.of_string_exn ["4.12";"4.11"; "4.10"; "4.03"] in
-        List.map make_release ovs @ [make_release ~arch:`I386 (List.hd ovs)]
-    end
+  | `Mainline -> (
+      match profile with
+      | `Production ->
+          let distros =
+            DD.active_tier1_distros `X86_64 @ DD.active_tier2_distros `X86_64
+            |> List.map make_distro
+            |> List.flatten
+          in
+          (* The first one in this list is used for lint actions *)
+          let ovs =
+            List.rev OV.Releases.recent @ OV.Releases.unreleased_betas
+          in
+          List.map make_release ovs @ distros
+      | `Dev ->
+          let ovs =
+            List.map OV.of_string_exn [ "4.12"; "4.11"; "4.10"; "4.03" ]
+          in
+          List.map make_release ovs @ [ make_release ~arch:`I386 (List.hd ovs) ]
+      )
   | `Multicore ->
-    let ovs = List.map OV.of_string_exn ["5.00"] in
-    List.map make_release ovs
+      let ovs = List.map OV.of_string_exn [ "5.00" ] in
+      List.map make_release ovs
 
-let opam_repository_repos = [
-  `Mainline, ({ Github.Repo_id.owner="ocaml"; name="opam-repository" }, "master");
-  `MulticoreTezos, ({ Github.Repo_id.owner="ocaml-multicore"; name="tezos-opam-repository" }, "5.00.0+trunk");
-  `Alpha, ({Github.Repo_id.owner="kit-ty-kate"; name="opam-alpha-repository"}, "master")
-]
+let opam_repository_repos =
+  [
+    ( `Mainline,
+      ({ Github.Repo_id.owner = "ocaml"; name = "opam-repository" }, "master")
+    );
+    ( `MulticoreTezos,
+      ( {
+          Github.Repo_id.owner = "ocaml-multicore";
+          name = "tezos-opam-repository";
+        },
+        "5.00.0+trunk" ) );
+    ( `Alpha,
+      ( { Github.Repo_id.owner = "kit-ty-kate"; name = "opam-alpha-repository" },
+        "master" ) );
+  ]
 
 let github_chosen_repos repos =
-  repos |>
-  List.map (fun r ->
-    let (repo, branch) = List.assoc r opam_repository_repos
-    in Github.Api.Anonymous.head_of repo (`Ref ("refs/heads/" ^ branch))) |>
-  Current.list_seq
+  repos
+  |> List.map (fun r ->
+         let repo, branch = List.assoc r opam_repository_repos in
+         Github.Api.Anonymous.head_of repo (`Ref ("refs/heads/" ^ branch)))
+  |> Current.list_seq
 
 let opam_repository_commits =
-  let chosen_repos = match target with
-  | `Mainline -> [`Mainline]
-  | `Multicore -> [`Alpha; `Mainline]
+  let chosen_repos =
+    match target with
+    | `Mainline -> [ `Mainline ]
+    | `Multicore -> [ `Alpha; `Mainline ]
   in
   chosen_repos |> github_chosen_repos
 
 let tezos_opam_repository_commits =
-  let chosen_repos = match target with
-  | `Mainline -> [`Mainline]
-  | `Multicore -> [`MulticoreTezos; `Mainline]
+  let chosen_repos =
+    match target with
+    | `Mainline -> [ `Mainline ]
+    | `Multicore -> [ `MulticoreTezos; `Mainline ]
   in
   chosen_repos |> github_chosen_repos
 
 let sandmark_opam_repository_commits =
-  let chosen_repos = match target with
-  | `Mainline -> [`Mainline]
-  | `Multicore -> [`Alpha; `Mainline]
+  let chosen_repos =
+    match target with
+    | `Mainline -> [ `Mainline ]
+    | `Multicore -> [ `Alpha; `Mainline ]
   in
   chosen_repos |> github_chosen_repos
 
-let fixed_repos = [
-  "https://github.com/AbsInt/CompCert";
-  "https://github.com/coq/coq@V8.13.2";
-  "https://github.com/janestreet/async@v0.14.0";
-  "https://github.com/janestreet/base@v0.14.1";
-  "https://github.com/janestreet/core@v0.14.1";
-  "https://github.com/janestreet/core_kernel@v0.14.1";
-  "https://github.com/mirage/irmin@2.9.0";
-  "https://github.com/ocaml-batteries-team/batteries-included@v3.3.0";
-]
+let fixed_repos =
+  [
+    "https://github.com/AbsInt/CompCert";
+    "https://github.com/coq/coq@V8.13.2";
+    "https://github.com/janestreet/async@v0.14.0";
+    "https://github.com/janestreet/base@v0.14.1";
+    "https://github.com/janestreet/core@v0.14.1";
+    "https://github.com/janestreet/core_kernel@v0.14.1";
+    "https://github.com/mirage/irmin@2.9.0";
+    "https://github.com/ocaml-batteries-team/batteries-included@v3.3.0";
+  ]
 
-let tezos_opam_repository_repos = [
-  "https://github.com/ocaml-multicore/tezos@5963aae437809881f67aee3373e5d35b5aa2348f";
-  (* tezos@4.12.0+domains currently doesn't work, because it requires
-   * opam 2.1 and our builds are using opam 2.0.8.
-   *
-   * "https://github.com/ocaml-multicore/tezos@4.12.0+domains"; *)
-  "https://github.com/ocsigen/lwt@5.4.1";
-  "https://github.com/ocaml-community/biniou.git@1.2.1";
-]
+let tezos_opam_repository_repos =
+  [
+    "https://github.com/ocaml-multicore/tezos@5963aae437809881f67aee3373e5d35b5aa2348f";
+    (* tezos@4.12.0+domains currently doesn't work, because it requires
+     * opam 2.1 and our builds are using opam 2.0.8.
+     *
+     * "https://github.com/ocaml-multicore/tezos@4.12.0+domains"; *)
+    "https://github.com/ocsigen/lwt@5.4.1";
+    "https://github.com/ocaml-community/biniou.git@1.2.1";
+  ]
 
-let sandmark_opam_repository_repos  = [
-  "https://github.com/ocaml-bench/sandmark.git@main"
-]
-
+let sandmark_opam_repository_repos =
+  [ "https://github.com/ocaml-bench/sandmark.git@main" ]
 
 let build_mechanism_for_package package =
   match package with
-  | "batteries" -> `Make ["all"; "test"]
-  | "CompCert" -> `Script ["sudo apt-get install -y libgmp-dev"; "opam install coq menhir"; "./configure x86_64-linux"; "make -j 4 all"; "make -C test all test"]
-  | "coq" -> `Script ["sudo apt-get install -y python3"; "opam install menhir ounit2"; "./configure -local -no-ask"; "make world"; "bash -c 'export PRINT_LOGS=1; make test-suite'"]
+  | "batteries" -> `Make [ "all"; "test" ]
+  | "CompCert" ->
+      `Script
+        [
+          "sudo apt-get install -y libgmp-dev";
+          "opam install coq menhir";
+          "./configure x86_64-linux";
+          "make -j 4 all";
+          "make -C test all test";
+        ]
+  | "coq" ->
+      `Script
+        [
+          "sudo apt-get install -y python3";
+          "opam install menhir ounit2";
+          "./configure -local -no-ask";
+          "make world";
+          "bash -c 'export PRINT_LOGS=1; make test-suite'";
+        ]
   | "ocaml-multicore" -> `Script []
-  | "tezos" -> `Script ["sudo apt-get install -y rsync git m4 build-essential patch unzip wget pkg-config libgmp-dev libev-dev libhidapi-dev libffi-dev opam jq zlib1g-dev bc autoconf software-properties-common"; "gpg --keyserver keyserver.ubuntu.com --recv-keys BA6932366A755776"; "gpg --export BA6932366A755776 | sudo apt-key add -"; "sudo add-apt-repository 'deb http://ppa.launchpad.net/deadsnakes/ppa/ubuntu bionic main'"; "sudo apt-get update"; "sudo apt-get install -y python3.9 python3.9-dev python3.9-distutils python3-pip virtualenv python3.9-venv"; "wget https://sh.rustup.rs/rustup-init.sh"; "chmod +x rustup-init.sh"; "./rustup-init.sh --profile minimal --default-toolchain 1.52.1 -y"; "opam install dune"; "curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py | python3.9 -"; "python3.9 -m pip install --upgrade setuptools"; "bash -c 'source $HOME/.poetry/env; source $HOME/.cargo/env; make build-deps && eval $(opam env); PATH=\"$HOME/.local/bin:$PATH\"; make -C tests_python install-dependencies && make && make test'"]
+  | "tezos" ->
+      `Script
+        [
+          "sudo apt-get install -y rsync git m4 build-essential patch unzip \
+           wget pkg-config libgmp-dev libev-dev libhidapi-dev libffi-dev opam \
+           jq zlib1g-dev bc autoconf software-properties-common";
+          "gpg --keyserver keyserver.ubuntu.com --recv-keys BA6932366A755776";
+          "gpg --export BA6932366A755776 | sudo apt-key add -";
+          "sudo add-apt-repository 'deb \
+           http://ppa.launchpad.net/deadsnakes/ppa/ubuntu bionic main'";
+          "sudo apt-get update";
+          "sudo apt-get install -y python3.9 python3.9-dev python3.9-distutils \
+           python3-pip virtualenv python3.9-venv";
+          "wget https://sh.rustup.rs/rustup-init.sh";
+          "chmod +x rustup-init.sh";
+          "./rustup-init.sh --profile minimal --default-toolchain 1.52.1 -y";
+          "opam install dune";
+          "curl -sSL \
+           https://raw.githubusercontent.com/python-poetry/poetry/master/install-poetry.py \
+           | python3.9 -";
+          "python3.9 -m pip install --upgrade setuptools";
+          "bash -c 'source $HOME/.poetry/env; source $HOME/.cargo/env; make \
+           build-deps && eval $(opam env); PATH=\"$HOME/.local/bin:$PATH\"; \
+           make -C tests_python install-dependencies && make && make test'";
+        ]
   | _ -> `Build
 
 let sandmark_mechanisme_for_package package =
-  let common = [
-    "opam repo add dependencies dependencies"
-    ; "rm -fr dependencies/packages/base-domains"
-    ; "rm -fr dependencies/packages/dune"
-    ; "opam repo"
-    ; "opam update -u"
-    ; "ocamlrun -version"]
+  let common =
+    [
+      "opam repo add dependencies dependencies";
+      "rm -fr dependencies/packages/base-domains";
+      "rm -fr dependencies/packages/dune";
+      "opam repo";
+      "opam update -u";
+      "ocamlrun -version";
+    ]
   in
-  `Script(
-    common
-    @[
-      "opam depext --update -y "^package
-      ;"opam install --deps-only -yv "^package
-      ;"opam remove -y "^package; "opam install -vy "^package])
+  `Script
+    (common
+    @ [
+        "opam depext --update -y " ^ package;
+        "opam install --deps-only -yv " ^ package;
+        "opam remove -y " ^ package;
+        "opam install -vy " ^ package;
+      ])
 
 let is_compiler_package package =
-  match package with
-  | "ocaml-multicore" -> true
-  | "ocaml" -> true
-  | _ -> false
+  match package with "ocaml-multicore" -> true | "ocaml" -> true | _ -> false
 
 (*
  * Exclude a combo of compiler version (ov) and package from the build.
@@ -230,53 +302,57 @@ let is_compiler_package package =
  *)
 let is_compiler_blocklisted ov package =
   match OV.extra ov with
-  | Some "domains+effects" -> begin
-    match package with
-    | "CompCert"
-    | "coq" -> true
-    | _ -> false
-  end
+  | Some "domains+effects" -> (
+      match package with "CompCert" | "coq" -> true | _ -> false)
   | _ -> false
 
-let is_sandmark url = String.equal url "https://github.com/ocaml-bench/sandmark.git@main"
+let is_sandmark url =
+  String.equal url "https://github.com/ocaml-bench/sandmark.git@main"
 
 let is_skipped_sandmark_package package =
   match package with
-  | "ocaml.5.0.0+trunk"  | "base-unix.base"
-  | "base-bigarray.base" | "base-domains.base"
-  | "base-threads.base" -> true
+  | "ocaml.5.0.0+trunk" | "base-unix.base" | "base-bigarray.base"
+  | "base-domains.base" | "base-threads.base" ->
+      true
   | _ -> false
 
 type conf = {
-  opam_repository_commits  : Current_git.Commit_id.t list Current.t
-  ; fixed_repos : string list
-  ; build_mechanism_for_package: string -> [`Build | `Script of string list | `Make of string list | `Lint of [`Doc | `Fmt | `Opam]]
-  ; is_compiler_package: string -> bool
-  ; is_compiler_blocklisted: OV.t -> string -> bool
+  opam_repository_commits : Current_git.Commit_id.t list Current.t;
+  fixed_repos : string list;
+  build_mechanism_for_package :
+    string ->
+    [ `Build
+    | `Script of string list
+    | `Make of string list
+    | `Lint of [ `Doc | `Fmt | `Opam ] ];
+  is_compiler_package : string -> bool;
+  is_compiler_blocklisted : OV.t -> string -> bool;
 }
 
-let default_conf = {
-  opam_repository_commits = opam_repository_commits
-  ; fixed_repos = fixed_repos
-  ; build_mechanism_for_package = build_mechanism_for_package
-  ; is_compiler_package = is_compiler_package
-  ; is_compiler_blocklisted = is_compiler_blocklisted
-}
-
-let configs = [
-  default_conf;
+let default_conf =
   {
-    opam_repository_commits = tezos_opam_repository_commits
-    ; fixed_repos = tezos_opam_repository_repos
-    ; build_mechanism_for_package = build_mechanism_for_package
-    ; is_compiler_package = is_compiler_package
-    ; is_compiler_blocklisted = is_compiler_blocklisted
-  };
-  {
-    opam_repository_commits = sandmark_opam_repository_commits
-    ; fixed_repos = sandmark_opam_repository_repos
-    ; build_mechanism_for_package = sandmark_mechanisme_for_package
-    ; is_compiler_package = is_compiler_package
-    ; is_compiler_blocklisted = is_compiler_blocklisted
+    opam_repository_commits;
+    fixed_repos;
+    build_mechanism_for_package;
+    is_compiler_package;
+    is_compiler_blocklisted;
   }
-]
+
+let configs =
+  [
+    default_conf;
+    {
+      opam_repository_commits = tezos_opam_repository_commits;
+      fixed_repos = tezos_opam_repository_repos;
+      build_mechanism_for_package;
+      is_compiler_package;
+      is_compiler_blocklisted;
+    };
+    {
+      opam_repository_commits = sandmark_opam_repository_commits;
+      fixed_repos = sandmark_opam_repository_repos;
+      build_mechanism_for_package = sandmark_mechanisme_for_package;
+      is_compiler_package;
+      is_compiler_blocklisted;
+    };
+  ]

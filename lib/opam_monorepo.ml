@@ -1,5 +1,4 @@
 type info = string * OpamFile.OPAM.t
-
 type lock_file_version = V0_1 | V0_2 [@@deriving yojson, ord]
 
 type config = {
@@ -71,7 +70,6 @@ let lock_file_version_of_string = function
   | v -> Printf.ksprintf failwith "unknown x-opam-monorepo-version %S" v
 
 let exactly v = Printf.sprintf {|{ = "%s" }|} v
-
 let between a b = Printf.sprintf {|{ >= "%s" & < "%s" }|} a b
 
 let plugin_version = function
@@ -92,7 +90,8 @@ let selection ~info:(package, lock_file) ~platforms ~solve =
   let dune_version = opam_monorepo_dep_version ~lock_file ~package:"dune" in
   let lock_file_version =
     x_opam_monorepo_version lock_file
-    |> Option.get |> lock_file_version_of_string
+    |> Option.get
+    |> lock_file_version_of_string
   in
   let monorepo_version = plugin_version lock_file_version in
   let deps_package = "opam-monorepo-deps.dev" in
@@ -155,7 +154,8 @@ let spec ~base ~repo ~config ~variant =
   @ install_depexts ~network ~cache:Opam_build.opam_download_cache ~package
       ~lock_file_version
   @ [
-      run ~network ~cache:Opam_build.opam_download_cache "opam exec -- opam monorepo pull";
+      run ~network ~cache:Opam_build.opam_download_cache
+        "opam exec -- opam monorepo pull";
       copy [ "." ] ~dst:"/src/";
       run ~cache:[ dune_cache ] "opam exec -- dune build @install";
       run ~cache:[ dune_cache ] "opam exec -- dune runtest";

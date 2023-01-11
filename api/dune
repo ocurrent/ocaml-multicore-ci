@@ -1,11 +1,18 @@
 (library
-  (name ocaml_multicore_ci_api)
-  (public_name ocaml-multicore-ci-api)
-  (libraries capnp-rpc-lwt current_rpc ppx_deriving_yojson.runtime solver-service-api)
-  (flags (:standard -w -53-55))
-  (preprocess (pps ppx_deriving.std ppx_deriving_yojson)))
+ (name ocaml_multicore_ci_api)
+ (public_name ocaml-multicore-ci-api)
+ (libraries
+  capnp-rpc-lwt
+  current_rpc
+  ppx_deriving_yojson.runtime
+  solver-service-api)
+ (flags
+  (:standard -w -53-55))
+ (preprocess
+  (pps ppx_deriving.std ppx_deriving_yojson)))
 
 (rule
  (targets solve.ml solve.mli build.ml build.mli ocurrent.ml ocurrent.mli)
  (deps build.capnp solve.capnp ocurrent.capnp)
- (action (run capnp compile -o %{bin:capnpc-ocaml} %{deps})))
+ (action
+  (run capnp compile -o %{bin:capnpc-ocaml} %{deps})))

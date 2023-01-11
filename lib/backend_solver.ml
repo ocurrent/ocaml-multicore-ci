@@ -2,10 +2,11 @@ open Lwt.Infix
 
 let ( >>!= ) = Lwt_result.bind
 
-type t = [`Remote of Current_ocluster.Connection.t | `Local of Ocaml_multicore_ci_api.Solver.t Lwt.t]
+type t =
+  [ `Remote of Current_ocluster.Connection.t
+  | `Local of Ocaml_multicore_ci_api.Solver.t Lwt.t ]
 
 let pool = "solver"
-
 let switch = Current.Switch.create ~label:"solver-remote" ()
 let config = Current.Config.v ()
 
@@ -15,9 +16,11 @@ let solve_to_custom req builder =
     @@ Ocaml_multicore_ci_api.Worker.Solve_request.to_yojson req
   in
   let builder =
-    Ocaml_multicore_ci_api.Raw.Solve.Builder.Solver.Solve.Params.init_pointer builder
+    Ocaml_multicore_ci_api.Raw.Solve.Builder.Solver.Solve.Params.init_pointer
+      builder
   in
-  Ocaml_multicore_ci_api.Raw.Solve.Builder.Solver.Solve.Params.request_set builder params
+  Ocaml_multicore_ci_api.Raw.Solve.Builder.Solver.Solve.Params.request_set
+    builder params
 
 let remote_solve con job request =
   let action =
@@ -35,28 +38,32 @@ let remote_solve con job request =
     (Current_ocluster.Connection.run_job ~job)
 
 let local ?solver_dir () : t =
-  `Local (Lwt.return (Solver_worker.spawn_local ?solver_dir ~internal_workers:20 ()))
+  `Local
+    (Lwt.return (Solver_worker.spawn_local ?solver_dir ~internal_workers:20 ()))
 
-let solve t job request ~log = match t with
+let solve t job request ~log =
+  match t with
   | `Local ci ->
-    ci >>= fun solver -> Ocaml_multicore_ci_api.Solver.solve solver request ~log
-  | `Remote con ->
-    remote_solve con job request >>!= fun response ->
-    match
-      Ocaml_multicore_ci_api.Worker.Solve_response.of_yojson
-        (Yojson.Safe.from_string response)
-    with
-    | Ok x -> Lwt.return x
-    | Error ex -> failwith ex
+      ci >>= fun solver ->
+      Ocaml_multicore_ci_api.Solver.solve solver request ~log
+  | `Remote con -> (
+      remote_solve con job request >>!= fun response ->
+      match
+        Ocaml_multicore_ci_api.Worker.Solve_response.of_yojson
+          (Yojson.Safe.from_string response)
+      with
+      | Ok x -> Lwt.return x
+      | Error ex -> failwith ex)
 
 let create ?solver_dir uri =
   match uri with
-  | None    -> local ?solver_dir ()
+  | None -> local ?solver_dir ()
   | Some ur ->
-    let vat = Capnp_rpc_unix.client_only_vat () in
-    let sr = Capnp_rpc_unix.Vat.import_exn vat ur in
-    `Remote (Current_ocluster.Connection.create sr)
+      let vat = Capnp_rpc_unix.client_only_vat () in
+      let sr = Capnp_rpc_unix.Vat.import_exn vat ur in
+      `Remote (Current_ocluster.Connection.create sr)
 
-let local_ci t : Ocaml_multicore_ci_api.Solver.t Lwt.t = match t with
+let local_ci t : Ocaml_multicore_ci_api.Solver.t Lwt.t =
+  match t with
   | `Local ci -> ci
   | `Remote _ -> Fmt.failwith "Not a local solver"
