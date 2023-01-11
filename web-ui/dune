@@ -6,21 +6,23 @@
   (run ocaml-crunch --mode=plain --output=%{target} static)))
 
 (executable
-  (name main)
-  (public_name ocaml-multicore-ci-web)
-  (package ocaml-multicore-ci-web)
-  (libraries lwt.unix
-             lwt_ppx
-             logs.fmt
-             fmt.tty
-             ansi
-             cohttp-lwt-unix
-             graphql-cohttp
-             graphql-lwt
-             tyxml
-             prometheus-app.unix
-             ocaml-multicore-ci-api
-             capnp-rpc-unix
-             yojson
-             ppx_deriving_yojson.runtime)
-(preprocess (pps lwt_ppx ppx_deriving_yojson)))
+ (name main)
+ (public_name ocaml-multicore-ci-web)
+ (package ocaml-multicore-ci-web)
+ (libraries
+  lwt.unix
+  lwt_ppx
+  logs.fmt
+  fmt.tty
+  ansi
+  cohttp-lwt-unix
+  graphql-cohttp
+  graphql-lwt
+  tyxml
+  prometheus-app.unix
+  ocaml-multicore-ci-api
+  capnp-rpc-unix
+  yojson
+  ppx_deriving_yojson.runtime)
+ (preprocess
+  (pps lwt_ppx ppx_deriving_yojson)))

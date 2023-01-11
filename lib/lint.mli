@@ -9,7 +9,8 @@ val doc_spec :
   opam_files:string list ->
   selection:Selection.t ->
   Obuilder_spec.t
-(** A build spec that checks that the documentation in [./src/] builds without warnings. *)
+(** A build spec that checks that the documentation in [./src/] builds without
+    warnings. *)
 
 val opam_lint_spec :
   base:string ->

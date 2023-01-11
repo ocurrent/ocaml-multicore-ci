@@ -4,15 +4,14 @@ type git_ref = string
 type git_hash = string
 type variant = string
 
-module Ref_map = Map.Make(String)
+module Ref_map = Map.Make (String)
 
 module State = struct
   open Raw.Build.Reader.JobInfo.State
 
   type t = unnamed_union_t
 
-  let pp f =
-    function
+  let pp f = function
     | NotStarted -> Fmt.string f "not started"
     | Aborted -> Fmt.string f "aborted"
     | Failed m -> Fmt.pf f "failed: %s" m
@@ -24,8 +23,7 @@ end
 module Build_status = struct
   include Raw.Build.Reader.BuildStatus
 
-  let pp f =
-    function
+  let pp f = function
     | NotStarted -> Fmt.string f "not started"
     | Failed -> Fmt.pf f "failed"
     | Passed -> Fmt.string f "passed"
@@ -72,16 +70,12 @@ module CI = struct
     let request = Capability.Request.create_no_args () in
     Capability.call_for_value t method_id request
     |> Lwt_result.map @@ fun jobs ->
-    Results.jobs_get_list jobs |> List.map raw_job_to_job_info
+       Results.jobs_get_list jobs |> List.map raw_job_to_job_info
 end
 
 module Org = struct
   type t = Raw.Build.Client.Org.t Capability.t
-
-  type repo_info = {
-    name : string;
-    master_status : Build_status.t;
-  }
+  type repo_info = { name : string; master_status : Build_status.t }
 
   let repo t name =
     let open Raw.Build.Client.Org.Repo in
@@ -94,12 +88,13 @@ module Org = struct
     let request = Capability.Request.create_no_args () in
     Capability.call_for_value t method_id request
     |> Lwt_result.map (fun result ->
-        Results.repos_get_list result
-        |> List.map @@ fun repo ->
-        let name = Raw.Build.Reader.RepoInfo.name_get repo in
-        let master_status = Raw.Build.Reader.RepoInfo.master_state_get repo in
-        { name; master_status }
-      )
+           Results.repos_get_list result
+           |> List.map @@ fun repo ->
+              let name = Raw.Build.Reader.RepoInfo.name_get repo in
+              let master_status =
+                Raw.Build.Reader.RepoInfo.master_state_get repo
+              in
+              { name; master_status })
 end
 
 module Repo = struct
@@ -108,14 +103,16 @@ module Repo = struct
   let refs t =
     let open Raw.Build.Client.Repo.Refs in
     let request = Capability.Request.create_no_args () in
-    Capability.call_for_value t method_id request |> Lwt_result.map @@ fun jobs ->
-    Results.refs_get_list jobs
-    |> List.fold_left (fun acc slot ->
-        let gref = Raw.Build.Reader.RefInfo.ref_get slot in
-        let hash = Raw.Build.Reader.RefInfo.hash_get slot in
-        let state = Raw.Build.Reader.RefInfo.state_get slot in
-        Ref_map.add gref (hash, state) acc
-      ) Ref_map.empty
+    Capability.call_for_value t method_id request
+    |> Lwt_result.map @@ fun jobs ->
+       Results.refs_get_list jobs
+       |> List.fold_left
+            (fun acc slot ->
+              let gref = Raw.Build.Reader.RefInfo.ref_get slot in
+              let hash = Raw.Build.Reader.RefInfo.hash_get slot in
+              let state = Raw.Build.Reader.RefInfo.state_get slot in
+              Ref_map.add gref (hash, state) acc)
+            Ref_map.empty
 
   let commit_of_hash t hash =
     let open Raw.Build.Client.Repo.CommitOfHash in
@@ -144,27 +141,26 @@ module Commit = struct
     let request = Capability.Request.create_no_args () in
     Capability.call_for_value t method_id request
     |> Lwt_result.map @@ fun jobs ->
-    Results.jobs_get_list jobs |> List.map raw_job_to_job_info
+       Results.jobs_get_list jobs |> List.map raw_job_to_job_info
 
   let refs t =
     let open Raw.Build.Client.Commit.Refs in
     let request = Capability.Request.create_no_args () in
-    Capability.call_for_value t method_id request |> Lwt_result.map Results.refs_get_list
+    Capability.call_for_value t method_id request
+    |> Lwt_result.map Results.refs_get_list
 
   let ( >> ) f g x = g (f x)
-
-  let (>>=) = Lwt_result.bind_result
+  let ( >>= ) = Lwt_result.bind_result
 
   let status t =
     let open Raw.Build.Client.Commit.Status in
     let request = Capability.Request.create_no_args () in
     Capability.call_for_value t method_id request
-    >>= (Results.status_get
-         >> function
-           | NotStarted -> Ok (`Not_started)
-           | Passed -> Ok (`Passed)
-           | Failed -> Ok (`Failed)
-           | Pending -> Ok (`Pending)
-           | Undefined i -> Error (`Msg (Fmt.str "client.states: undefined state %d" i))
-        )
+    >>= (Results.status_get >> function
+         | NotStarted -> Ok `Not_started
+         | Passed -> Ok `Passed
+         | Failed -> Ok `Failed
+         | Pending -> Ok `Pending
+         | Undefined i ->
+             Error (`Msg (Fmt.str "client.states: undefined state %d" i)))
 end

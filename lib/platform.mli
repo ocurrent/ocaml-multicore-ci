@@ -3,8 +3,8 @@
 type t = {
   label : string;
   builder : Builder.t;
-  pool : string;        (* OCluster pool *)
-  variant : Variant.t;  (* e.g. "debian-10-ocaml-4.08" *)
+  pool : string; (* OCluster pool *)
+  variant : Variant.t; (* e.g. "debian-10-ocaml-4.08" *)
   base : Current_docker.Raw.Image.t;
   vars : Ocaml_multicore_ci_api.Worker.Vars.t;
 }
@@ -12,7 +12,8 @@ type t = {
 val pp : t Fmt.t
 val compare : t -> t -> int
 
-val compiler_matches_major_and_minor : Ocaml_multicore_ci_api.Worker.Vars.t -> version:Ocaml_version.t -> bool
+val compiler_matches_major_and_minor :
+  Ocaml_multicore_ci_api.Worker.Vars.t -> version:Ocaml_version.t -> bool
 (** [compiler_matches_major_and_minor vars ~version] is [true] iff the compiler
     version in [vars] matches [version], considering only the major and minor
     parts of the version number. *)
@@ -28,8 +29,8 @@ val get :
   opam_version:Opam_version.t ->
   Current_docker.Raw.Image.t Current.t ->
   t Current.t
-(** [get ~label ~builder ~variant ~host_base base] creates a [t] by getting the opam variables from [host_base]
-    and returning [base] for subsequent builds. *)
+(** [get ~label ~builder ~variant ~host_base base] creates a [t] by getting the
+    opam variables from [host_base] and returning [base] for subsequent builds. *)
 
 val pull :
   arch:Ocaml_version.arch ->

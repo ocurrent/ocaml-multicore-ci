@@ -1,9 +1,7 @@
 val opam_download_cache : Obuilder_spec.Cache.t list
 
 val install_project_deps :
-  opam_files:string list ->
-  selection:Selection.t ->
-  Obuilder_spec.op list
+  opam_files:string list -> selection:Selection.t -> Obuilder_spec.op list
 
 val spec_dune :
   repo:string option ->
