@@ -1,7 +1,6 @@
 (lang dune 3.6)
-(name ocaml-multicore-ci-api)
+(name ocaml-multicore-ci)
 
-(formatting disabled)
 (generate_opam_files true)
 (source (github ocurrent/ocaml-multicore-ci))
 (authors "talex5@gmail.com")

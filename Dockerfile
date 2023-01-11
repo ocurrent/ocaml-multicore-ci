@@ -1,4 +1,4 @@
-FROM ocaml/opam:debian-11-ocaml-4.14@sha256:e4ce65485aed7b09b605f39643b46b86b913b54f5304e0dc125d815d18805887 AS build
+FROM ocaml/opam:debian-11-ocaml-4.14@sha256:6309bd23e6e42f06e4f74354bb7969749b996af2263c70432f803d894a357129 AS build
 RUN sudo apt-get update && sudo apt-get install libev-dev libffi-dev capnproto m4 pkg-config libsqlite3-dev libgmp-dev graphviz -y --no-install-recommends
 RUN cd ~/opam-repository && git fetch -q origin master && git reset --hard 4d71c85721434d76da9b416c2f1a082c22d45769 && opam update
 COPY --chown=opam \
@@ -35,6 +35,7 @@ RUN opam pin add -yn current_docker.dev "./ocurrent" && \
     opam pin add -yn current_ocluster.dev "./ocluster" && \
     opam pin add -yn ocaml-version.dev "./ocaml-version" && \
     opam pin add -yn dockerfile.dev "./ocaml-dockerfile" && \
+    opam pin add -yn dockerfile-opam.dev "./ocaml-dockerfile" && \
     opam pin add -yn solver-service-api.dev "./solver-service" && \
     opam pin add -yn solver-service.dev "./solver-service" && \
     opam pin add -yn ocluster-api.dev "./ocluster"
