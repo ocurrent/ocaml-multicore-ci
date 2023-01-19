@@ -277,6 +277,7 @@ module Analysis = struct
         root_pkgs;
         pinned_pkgs;
         platforms;
+        lower_bound = false;
       }
     in
     Capnp_rpc_lwt.Capability.with_ref (job_log job) @@ fun log ->
