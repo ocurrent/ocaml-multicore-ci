@@ -218,10 +218,16 @@ let spec_script ~repo ~base ~opam_files ~compiler_commit ~selection ~cmds =
     ~cmds:(run_all_opam_exec cmds)
 
 let spec_dune ~repo ~base ~opam_files ~compiler_commit ~selection =
+  let only_packages =
+    let to_name x = OpamPackage.of_string x |> OpamPackage.name_to_string in
+    match selection.Selection.only_packages with
+    | [] -> ""
+    | pkgs -> " --only-packages=" ^ String.concat "," (List.map to_name pkgs)
+  in
   let cmd =
     match selection.Selection.command with
     | Some c -> c
-    | None -> "dune build @install @runtest"
+    | None -> Printf.sprintf "dune build%s @install @runtest" only_packages
   in
   let cmds = [ "opam install dune"; cmd ^ " && rm -rf _build" ] in
   spec_script ~repo ~base ~opam_files ~compiler_commit ~selection ~cmds
