@@ -53,6 +53,7 @@ let make_placeholder_selections ~platforms ~opam_repository_commits =
          {
            Selection.variant = fst platform;
            packages = [];
+           only_packages = [];
            commits =
              List.map
                (fun y ->
@@ -196,12 +197,11 @@ module Analysis = struct
       None
 
   (** If the opam file for the given root_pkgs includes a build command, use
-      that instead of the default (dune build @install @runtests).  This is
-      put into Selection.command to be picked up by the build phase.
+      that instead of the default (dune build \@install \@runtests). This is put
+      into Selection.command to be picked up by the build phase.
 
-      This is only implemented if root_pkgs is a singleton, otherwise we
-      fall back to the default build command.
-    *)
+      This is only implemented if root_pkgs is a singleton, otherwise we fall
+      back to the default build command. *)
   let maybe_add_build_command ~root_pkgs selection =
     match root_pkgs with
     | [ (pkg_name, opam_str) ] ->
@@ -211,6 +211,7 @@ module Analysis = struct
         {
           Selection.variant = selection.Selection.variant;
           packages = selection.packages;
+          only_packages = selection.only_packages;
           commits = selection.commits;
           command;
         }
@@ -283,7 +284,9 @@ module Analysis = struct
     Capnp_rpc_lwt.Capability.with_ref (job_log job) @@ fun log ->
     Backend_solver.solve solver job request ~log >|= function
     | Ok [] -> Fmt.error_msg "No solution found for any supported platform"
-    | Ok x -> Ok (List.map Selection.of_worker x)
+    | Ok x ->
+        let root_pkgs = List.map fst root_pkgs in
+        Ok (List.map (Selection.of_worker ~root_pkgs) x)
     | Error (`Msg msg) -> Fmt.error_msg "Error from solver: %s" msg
 
   let find_opam_files ~job ~dir =
